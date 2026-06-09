@@ -6,8 +6,9 @@
 #     bootstrap inside read-only /usr sandbox)
 #   - Node.js is already in the base image (installed by Claude Code)
 #
-# This image eliminates the need for the sandbox-yarn-setup.sh
-# host_files workaround in harness configs.
+# Yarn is available on PATH immediately — no runtime corepack setup needed.
+# DNS proxy config is handled by env/yarn-proxy.env (maps OpenShell's
+# HTTP_PROXY to YARN_HTTP_PROXY).
 #
 # Build (native arch):
 #   podman build -t rhdh-fullsend-code:local \

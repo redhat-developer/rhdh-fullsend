@@ -100,23 +100,9 @@ service account key for the `rhdh-sidekick-167988` project with the
 **If your team lead provides the key file:** save it to
 `~/.config/fullsend/fullsend-local-credentials.json` and `chmod 600` it.
 
-**If you need to create the SA yourself:**
-
-```bash
-gcloud iam service-accounts create fullsend-local \
-  --display-name="Fullsend local agent runner" \
-  --project=rhdh-sidekick-167988
-
-gcloud projects add-iam-policy-binding rhdh-sidekick-167988 \
-  --member="serviceAccount:fullsend-local@rhdh-sidekick-167988.iam.gserviceaccount.com" \
-  --role="roles/aiplatform.user" \
-  --condition=None
-
-gcloud iam service-accounts keys create ~/.config/fullsend/fullsend-local-credentials.json \
-  --iam-account=fullsend-local@rhdh-sidekick-167988.iam.gserviceaccount.com
-
-chmod 600 ~/.config/fullsend/fullsend-local-credentials.json
-```
+**If you need to create the SA yourself:** see
+[GCP Infrastructure — Service Accounts](gcp-infrastructure.md#service-accounts)
+for the full `gcloud` commands (create SA, grant role, generate key, rotate).
 
 ## Step 4: Create env files
 
