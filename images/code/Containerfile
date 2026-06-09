@@ -1,0 +1,48 @@
+# Containerfile — RHDH custom code agent sandbox image.
+#
+# Extends the upstream fullsend-code image with tools needed by the
+# rhdh-plugins monorepo:
+#   - corepack enabled with yarn pre-activated (avoids 10-15 min
+#     bootstrap inside read-only /usr sandbox)
+#   - Node.js is already in the base image (installed by Claude Code)
+#
+# This image eliminates the need for the sandbox-yarn-setup.sh
+# host_files workaround in harness configs.
+#
+# Build (native arch):
+#   podman build -t rhdh-fullsend-code:local \
+#     -f images/code/Containerfile images/code/
+#
+# Build (cross-platform):
+#   podman build --platform linux/arm64 -t rhdh-fullsend-code:arm64 \
+#     -f images/code/Containerfile images/code/
+
+ARG BASE_IMAGE=ghcr.io/fullsend-ai/fullsend-code:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+# ---------------------------------------------------------------------------
+# corepack + yarn — the sandbox filesystem policy makes /usr read-only,
+# so `corepack enable` fails at runtime. Pre-enable it here and
+# pre-download yarn so agents get yarn on PATH with zero startup cost.
+#
+# COREPACK_HOME is set to a writable location that persists across
+# the sandbox session. The shim symlinks land in /usr/local/bin
+# (writable during build, read-only at runtime — which is fine,
+# they're already there).
+ENV COREPACK_HOME=/usr/local/share/corepack
+RUN mkdir -p "$COREPACK_HOME" \
+    && corepack enable \
+    && corepack prepare yarn@stable --activate \
+    && yarn --version
+
+# ---------------------------------------------------------------------------
+# Wrapper for git hooks (husky) — hooks run in subprocesses without
+# the agent's PATH modifications. This wrapper in /usr/local/bin
+# (on default PATH) ensures `yarn lint-staged` etc. work.
+RUN printf '#!/bin/bash\nexport COREPACK_HOME=/usr/local/share/corepack\nexec /usr/bin/corepack yarn "$@"\n' \
+      > /usr/local/bin/yarn \
+    && chmod +x /usr/local/bin/yarn
+
+USER sandbox
