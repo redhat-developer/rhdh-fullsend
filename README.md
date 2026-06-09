@@ -52,8 +52,48 @@ This replaces the `sandbox-yarn-setup.sh` + `host_files` workaround.
 
 ## Local build
 
+Requires Podman (or Docker). Builds for your native architecture only.
+
 ```bash
 podman build -t rhdh-fullsend-code:local \
+  -f images/code/Containerfile images/code/
+```
+
+### Testing locally with fullsend
+
+After building, use the local image for `fullsend run` by setting the
+`FULLSEND_SANDBOX_IMAGE` env var:
+
+```bash
+export FULLSEND_SANDBOX_IMAGE=localhost/rhdh-fullsend-code:local
+
+fullsend run code \
+  --fullsend-dir /path/to/fullsend/internal/scaffold/fullsend-repo/ \
+  --target-repo /path/to/rhdh-plugins/ \
+  --env-file ~/.config/fullsend/gcp-vertex.env \
+  --env-file ~/.config/fullsend/code.env \
+  --no-post-script
+```
+
+### Verifying the image contents
+
+```bash
+# Check yarn is available
+podman run --rm rhdh-fullsend-code:local yarn --version
+
+# Check corepack home
+podman run --rm rhdh-fullsend-code:local ls -la /usr/local/share/corepack/
+
+# Interactive shell for debugging
+podman run --rm -it rhdh-fullsend-code:local bash
+```
+
+### Cross-platform build (requires QEMU)
+
+Build for a different architecture (e.g., amd64 on an Apple Silicon Mac):
+
+```bash
+podman build --platform linux/amd64 -t rhdh-fullsend-code:amd64 \
   -f images/code/Containerfile images/code/
 ```
 
