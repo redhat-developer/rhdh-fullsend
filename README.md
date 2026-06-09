@@ -50,6 +50,11 @@ image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 
 This replaces the `sandbox-yarn-setup.sh` + `host_files` workaround.
 
+## Local agent runs
+
+See [docs/local-setup.md](docs/local-setup.md) for the full guide: Podman VM,
+OpenShell gateway, GCP credentials, SSH tunnel, and running agents end-to-end.
+
 ## Local build
 
 Requires Podman (or Docker). Builds for your native architecture only.
