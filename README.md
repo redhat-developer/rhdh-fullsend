@@ -1,6 +1,7 @@
 # rhdh-fullsend
 
-Custom fullsend sandbox images for the RHDH team's agent infrastructure.
+Custom fullsend sandbox images and deployment documentation for the RHDH
+team's agent infrastructure.
 
 ## Why this repo exists
 
@@ -13,6 +14,16 @@ workaround (a `host_files`-mounted shell script) is fragile.
 
 This repo builds a single image that extends `fullsend-code:latest` with
 corepack and yarn pre-activated.
+
+## Documentation
+
+| Doc | What it covers |
+|-----|---------------|
+| [Local Setup](docs/local-setup.md) | Podman VM, OpenShell gateway, GCP credentials, running agents locally |
+| [Repo Onboarding](docs/repo-onboarding.md) | Installing fullsend on a new RHDH repo (standard and manual methods) |
+| [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
+| [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
+| [Known Issues](docs/known-issues.md) | Active friction points, workarounds, upstream tracking |
 
 ## Image
 
@@ -52,8 +63,7 @@ This replaces the `sandbox-yarn-setup.sh` + `host_files` workaround.
 
 ## Local agent runs
 
-See [docs/local-setup.md](docs/local-setup.md) for the full guide: Podman VM,
-OpenShell gateway, GCP credentials, SSH tunnel, and running agents end-to-end.
+See [Local Setup](docs/local-setup.md) for running agents on macOS.
 
 ## Local build
 
