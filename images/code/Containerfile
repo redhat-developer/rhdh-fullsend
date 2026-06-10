@@ -36,4 +36,10 @@ RUN mkdir -p "$COREPACK_HOME" \
     && corepack prepare yarn@stable --activate \
     && yarn --version
 
+# ---------------------------------------------------------------------------
+# openspec CLI — spec-driven development tooling.
+# Used by agents working on repos with openspec/ directories.
+RUN npm install -g @fission-ai/openspec \
+    && openspec --version
+
 USER sandbox
