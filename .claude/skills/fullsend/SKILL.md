@@ -1,10 +1,19 @@
 ---
-description: "Fullsend harness validation, drift checking, sandbox debugging, and fullsend setup"
+name: fullsend
+description: |
+  Fullsend harness validation, drift checking, sandbox debugging, and fullsend setup.
+  Use when asked to validate fullsend config, check for drift against upstream scaffold,
+  diff or compare customized harness/env files against upstream, debug a sandbox run,
+  inspect a fullsend agent run, or look at a specific run by ID or issue number.
+  Also use when asked why a fullsend run failed, what changed in the harness, or how
+  to set up env vars for the sandbox.
 ---
 
 # /fullsend
 
 Tooling for managing fullsend sandbox configurations — validating customized harness/env files against the upstream scaffold, debugging sandbox issues, and managing fullsend setup.
+
+<essential_principles>
 
 ## Essential Principles
 
@@ -13,6 +22,10 @@ Tooling for managing fullsend sandbox configurations — validating customized h
 3. **Always diff before deploying.** Never commit a customized harness without comparing it field-by-field against the current upstream version.
 4. **Docker ENV is dead at runtime.** OpenShell strips Containerfile `ENV` directives — they exist during `docker build` but not in the sandbox. All runtime env vars must go through `.env.d/` files.
 5. **Path flattening.** Fullsend overlays `.fullsend/customized/env/` → `env/`, `.fullsend/customized/harness/` → `harness/`, etc. Harness `host_files.src` paths are always relative to the **flattened** working dir (e.g., `env/foo.env`, never `customized/env/foo.env`).
+
+</essential_principles>
+
+<env_delivery>
 
 ## How Env Vars Reach the Sandbox
 
@@ -31,19 +44,21 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 
 **`expand: true`** runs `os.ExpandEnv()` on the file using the **GitHub Actions runner's** environment before copying it into the sandbox. `${PATH}` would become the runner's PATH, not the container's. Omit `expand` for hardcoded values.
 
+</env_delivery>
+
+<setup>
+
 ## Setup Gates
 
-**Scaffold directory** (required by `validate`):
+| Gate | Required by | Check | If fail |
+|------|-------------|-------|---------|
+| Scaffold dir | `validate` | `$FULLSEND_SCAFFOLD_DIR` or `../asdlc-lab/resources/fullsend-ai/fullsend/internal/scaffold/fullsend-repo/` is a readable directory | Ask user to set `FULLSEND_SCAFFOLD_DIR` or clone `asdlc-lab` |
+| Target repo | `validate`, `inspect` | Explicit argument, `--repo` flag, or `../rhdh-agentic` exists | Ask user for the repo path |
+| `gh` CLI | `inspect` | `gh auth status` succeeds | Ask user to install and authenticate `gh` — `inspect` cannot run without it |
 
-1. Environment variable `FULLSEND_SCAFFOLD_DIR` (if set)
-2. Default relative path: `../asdlc-lab/resources/fullsend-ai/fullsend/internal/scaffold/fullsend-repo/`
+</setup>
 
-If neither resolves to a readable directory, stop and ask the user to set `FULLSEND_SCAFFOLD_DIR` or clone `asdlc-lab`.
-
-**Target repo** (used by `validate` and `inspect`):
-
-1. Explicit argument (repo path or `--repo` flag)
-2. Default: `../rhdh-agentic`
+<intake>
 
 ## Commands
 
@@ -52,8 +67,19 @@ If neither resolves to a readable directory, stop and ask the user to set `FULLS
 | `validate [repo-path]` | Diff customized harness/env files against upstream scaffold |
 | `inspect <run-id \| #issue>` | Investigate a fullsend agent run — status, timing, output, logs |
 
+If no arguments are given, display this table and ask which the user wants.
+
+</intake>
+
+<routing>
+
 ## Routing
 
-1. Parse the first word after `/fullsend` as the subcommand.
-2. If it matches a command above, read the corresponding reference file from `references/<command>.md` and follow its procedure.
-3. If no arguments are given, display the commands table above and ask which the user wants.
+Parse the first word after `/fullsend` as the subcommand.
+
+| Command | Reference |
+|---------|-----------|
+| `validate` | `references/validate.md` |
+| `inspect` | `references/inspect.md` |
+
+</routing>

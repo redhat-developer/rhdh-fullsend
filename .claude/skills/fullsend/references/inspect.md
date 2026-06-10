@@ -2,6 +2,14 @@
 
 Investigate a fullsend agent run — pull together status, timing, agent output, and logs into a single report.
 
+## Prerequisites
+
+Before running any steps, verify `gh` is installed and authenticated:
+```bash
+gh auth status
+```
+If this fails, stop and ask the user to install and authenticate `gh`. Every step below depends on it.
+
 ## Usage
 
 ```
@@ -81,8 +89,7 @@ If no status comment found, note: "No agent status comment — the run may have 
 If a commit SHA was found in step 3:
 
 ```bash
-# Find branches containing the commit (in the local clone)
-cd <repo-path> && git fetch --quiet && git branch -r --contains <sha> 2>/dev/null
+git -C <repo-path> fetch --quiet && git -C <repo-path> branch -r --contains <sha> 2>/dev/null
 ```
 
 ```bash

@@ -1,0 +1,10 @@
+{
+  "validate": {
+    "description": "Diff customized harness and env files against upstream scaffold to catch drift. Use when checking fullsend config, comparing harness files, or verifying customizations before deploying.",
+    "argumentHint": "[repo-path]"
+  },
+  "inspect": {
+    "description": "Investigate a fullsend agent run — pull together status, timing, agent output, and logs. Use when debugging a failed run, checking run results, or looking at a specific run by ID or issue number.",
+    "argumentHint": "<run-id | #issue>"
+  }
+}

@@ -1,0 +1,4 @@
+skills-lock.json
+.agents/
+.claude/skills/*
+!.claude/skills/fullsend/
