@@ -31,11 +31,17 @@ USER root
 # YARN_HTTP(S)_PROXY is set at runtime via env files, not baked in.
 ENV COREPACK_HOME=/tmp/corepack
 
+# Pin yarn to the version rhdh-plugins uses (packageManager in package.json).
+# Using yarn@stable would install the latest (4.16.x), but the repo pins 4.12.0
+# and corepack would need to re-download at runtime — wasting time and requiring
+# write access to the cache.
+# chmod -R: v1/ subdirectory tree is created as root during prepare, but the
+# sandbox user needs write access (corepack updates lastKnownGood.json at runtime).
 RUN mkdir -p "$COREPACK_HOME" \
     && corepack enable \
-    && corepack prepare yarn@stable --activate \
+    && corepack prepare yarn@4.12.0 --activate \
     && yarn --version \
-    && chmod 777 "$COREPACK_HOME"
+    && chmod -R 777 "$COREPACK_HOME"
 
 # ---------------------------------------------------------------------------
 # openspec CLI — spec-driven development tooling.
