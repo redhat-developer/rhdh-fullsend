@@ -7,7 +7,7 @@
 #   - Node.js is already in the base image (installed by Claude Code)
 #
 # Yarn is available on PATH immediately — no runtime corepack setup needed.
-# Proxy config is baked into the image via YARN_HTTP(S)_PROXY env vars.
+# Proxy config is injected at runtime via env files (YARN_HTTP(S)_PROXY).
 #
 # Build (native arch):
 #   podman build -t rhdh-fullsend-code:local \
@@ -28,11 +28,8 @@ USER root
 # /usr/local/bin and is the only yarn binary — no wrapper script needed.
 #
 # COREPACK_HOME=/tmp/corepack — writable under every sandbox policy.
-# YARN_HTTP(S)_PROXY — hardcoded OpenShell proxy; inherited by all child
-# processes (including git hook subprocesses), replacing the old wrapper.
+# YARN_HTTP(S)_PROXY is set at runtime via env files, not baked in.
 ENV COREPACK_HOME=/tmp/corepack
-ENV YARN_HTTP_PROXY=http://10.200.0.1:3128
-ENV YARN_HTTPS_PROXY=http://10.200.0.1:3128
 
 RUN mkdir -p "$COREPACK_HOME" \
     && corepack enable \
