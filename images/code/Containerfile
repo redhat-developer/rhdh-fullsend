@@ -34,7 +34,8 @@ ENV COREPACK_HOME=/tmp/corepack
 RUN mkdir -p "$COREPACK_HOME" \
     && corepack enable \
     && corepack prepare yarn@stable --activate \
-    && yarn --version
+    && yarn --version \
+    && chmod 777 "$COREPACK_HOME"
 
 # ---------------------------------------------------------------------------
 # openspec CLI — spec-driven development tooling.
