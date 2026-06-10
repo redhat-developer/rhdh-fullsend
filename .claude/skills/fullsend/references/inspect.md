@@ -22,7 +22,7 @@ If this fails, stop and ask the user to install and authenticate `gh`. Every ste
 - `#<issue-number>`: find the latest fullsend run triggered by this issue
 - No argument: inspect the most recent fullsend run
 
-Default repo: `../rhdh-agentic`. Override with `FULLSEND_REPO` env var or `--repo <owner/name>`.
+Repo is resolved using the shared repo resolution order from the SKILL.md `<repo_resolution>` section. Override with `--repo <owner/name>`.
 
 ## Procedure
 

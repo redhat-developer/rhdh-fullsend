@@ -7,11 +7,13 @@ description: |
   inspect a fullsend agent run, or look at a specific run by ID or issue number.
   Also use when asked why a fullsend run failed, what changed in the harness, or how
   to set up env vars for the sandbox.
+  Also use when asked to trigger a fullsend agent, post a slash command on an issue,
+  watch or monitor a fullsend run, comment on an issue, or manage labels.
 ---
 
 # /fullsend
 
-Tooling for managing fullsend sandbox configurations — validating customized harness/env files against the upstream scaffold, debugging sandbox issues, and managing fullsend setup.
+Tooling for managing fullsend sandbox configurations — validating customized harness/env files against the upstream scaffold, debugging sandbox issues, triggering and monitoring agent runs, and managing issue metadata.
 
 <essential_principles>
 
@@ -22,8 +24,24 @@ Tooling for managing fullsend sandbox configurations — validating customized h
 3. **Always diff before deploying.** Never commit a customized harness without comparing it field-by-field against the current upstream version.
 4. **Docker ENV is dead at runtime.** OpenShell strips Containerfile `ENV` directives — they exist during `docker build` but not in the sandbox. All runtime env vars must go through `.env.d/` files.
 5. **Path flattening.** Fullsend overlays `.fullsend/customized/env/` → `env/`, `.fullsend/customized/harness/` → `harness/`, etc. Harness `host_files.src` paths are always relative to the **flattened** working dir (e.g., `env/foo.env`, never `customized/env/foo.env`).
+6. **Confirm before mutating.** Commands that write to GitHub (`trigger`, `comment`, `label`) must confirm with the user before acting. These are shared-state actions visible to the whole team.
 
 </essential_principles>
+
+<repo_resolution>
+
+## Repo Resolution
+
+All commands that interact with GitHub use the same resolution order:
+
+1. **Explicit `--repo owner/name`** flag — highest priority.
+2. **`FULLSEND_REPO` env var** — if set.
+3. **cwd detection** — if cwd is inside a git repo with `.fullsend/config.yaml`, derive `owner/name` from `gh repo view --json nameWithOwner -q .nameWithOwner`.
+4. **Fallback** — check if `../rhdh-agentic` exists and use its `owner/name`.
+
+If none resolve, ask the user.
+
+</repo_resolution>
 
 <env_delivery>
 
@@ -53,8 +71,8 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | Gate | Required by | Check | If fail |
 |------|-------------|-------|---------|
 | Scaffold dir | `validate` | `$FULLSEND_SCAFFOLD_DIR` or `../asdlc-lab/resources/fullsend-ai/fullsend/internal/scaffold/fullsend-repo/` is a readable directory | Ask user to set `FULLSEND_SCAFFOLD_DIR` or clone `asdlc-lab` |
-| Target repo | `validate`, `inspect` | Explicit argument, `--repo` flag, or `../rhdh-agentic` exists | Ask user for the repo path |
-| `gh` CLI | `inspect` | `gh auth status` succeeds | Ask user to install and authenticate `gh` — `inspect` cannot run without it |
+| Target repo | all commands | Repo resolution (see above) | Ask user for the repo |
+| `gh` CLI | `inspect`, `trigger`, `watch`, `comment`, `label` | `gh auth status` succeeds | Ask user to install and authenticate `gh` |
 
 </setup>
 
@@ -66,6 +84,10 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 |---------|-------------|
 | `validate [repo-path]` | Diff customized harness/env files against upstream scaffold |
 | `inspect <run-id \| #issue>` | Investigate a fullsend agent run — status, timing, output, logs |
+| `trigger <agent> <#issue\|#PR> [--repo] [--force]` | Post a fullsend slash command to start an agent |
+| `watch <#issue\|run-id> [--repo]` | Monitor a triggered run until completion, then auto-inspect |
+| `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
+| `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 
 If no arguments are given, display this table and ask which the user wants.
 
@@ -81,5 +103,9 @@ Parse the first word after `/fullsend` as the subcommand.
 |---------|-----------|
 | `validate` | `references/validate.md` |
 | `inspect` | `references/inspect.md` |
+| `trigger` | `references/trigger.md` |
+| `watch` | `references/watch.md` |
+| `comment` | `references/comment.md` |
+| `label` | `references/label.md` |
 
 </routing>

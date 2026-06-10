@@ -6,5 +6,21 @@
   "inspect": {
     "description": "Investigate a fullsend agent run — pull together status, timing, agent output, and logs. Use when debugging a failed run, checking run results, or looking at a specific run by ID or issue number.",
     "argumentHint": "<run-id | #issue>"
+  },
+  "trigger": {
+    "description": "Post a fullsend slash command on a GitHub issue or PR to start an agent run. Use when triggering /fs-code, /fs-triage, /fs-review, /fs-fix, /fs-retro, or /fs-prioritize.",
+    "argumentHint": "<agent> <#issue|#PR> [--repo owner/name] [--force]"
+  },
+  "watch": {
+    "description": "Monitor a triggered fullsend run until completion, then auto-inspect it. Use when waiting for a fullsend agent run to finish.",
+    "argumentHint": "<#issue|run-id> [--repo owner/name]"
+  },
+  "comment": {
+    "description": "Post a comment on a GitHub issue or PR. Use when adding context, instructions, or notes before or after a fullsend agent run.",
+    "argumentHint": "<#issue> <message> [--repo owner/name]"
+  },
+  "label": {
+    "description": "Add or remove a label on a GitHub issue or PR. Use when managing fullsend labels like triaged, ready-to-code, fullsend-no-fix, or workspace labels.",
+    "argumentHint": "<#issue> <add|remove> <label> [--repo owner/name]"
   }
 }
