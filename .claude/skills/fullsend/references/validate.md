@@ -102,6 +102,8 @@ These are run regardless of whether a field is classified above:
 | Dropped skills | `skills` list shorter than upstream | REVIEW |
 | host_files dest changed | `dest` differs from upstream | REVIEW |
 | runner_env subset | Customized `runner_env` keys are subset of upstream | REVIEW |
+| expand on fixed values | `host_files` entry has `expand: true` but file contains only hardcoded values (no `${}`). Expand is unnecessary and risks accidental substitution | REVIEW |
+| missing .env.d dest | `host_files` entry for an env file has `dest` outside `/sandbox/workspace/.env.d/`. File won't be auto-sourced | ERROR |
 
 ## Implementation Notes
 
