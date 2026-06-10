@@ -7,8 +7,7 @@
 #   - Node.js is already in the base image (installed by Claude Code)
 #
 # Yarn is available on PATH immediately — no runtime corepack setup needed.
-# DNS proxy config is handled by env/yarn-proxy.env (maps OpenShell's
-# HTTP_PROXY to YARN_HTTP_PROXY).
+# Proxy config is baked into the image via YARN_HTTP(S)_PROXY env vars.
 #
 # Build (native arch):
 #   podman build -t rhdh-fullsend-code:local \
@@ -24,26 +23,20 @@ FROM ${BASE_IMAGE}
 USER root
 
 # ---------------------------------------------------------------------------
-# corepack + yarn — the sandbox filesystem policy makes /usr read-only,
-# so `corepack enable` fails at runtime. Pre-enable it here and
-# pre-download yarn so agents get yarn on PATH with zero startup cost.
+# corepack + yarn — pre-enable corepack and pre-download yarn so agents
+# get yarn on PATH with zero startup cost. corepack's own shim lands in
+# /usr/local/bin and is the only yarn binary — no wrapper script needed.
 #
-# COREPACK_HOME is set to a writable location that persists across
-# the sandbox session. The shim symlinks land in /usr/local/bin
-# (writable during build, read-only at runtime — which is fine,
-# they're already there).
-ENV COREPACK_HOME=/usr/local/share/corepack
+# COREPACK_HOME=/tmp/corepack — writable under every sandbox policy.
+# YARN_HTTP(S)_PROXY — hardcoded OpenShell proxy; inherited by all child
+# processes (including git hook subprocesses), replacing the old wrapper.
+ENV COREPACK_HOME=/tmp/corepack
+ENV YARN_HTTP_PROXY=http://10.200.0.1:3128
+ENV YARN_HTTPS_PROXY=http://10.200.0.1:3128
+
 RUN mkdir -p "$COREPACK_HOME" \
     && corepack enable \
     && corepack prepare yarn@stable --activate \
     && yarn --version
-
-# ---------------------------------------------------------------------------
-# Wrapper for git hooks (husky) — hooks run in subprocesses without
-# the agent's PATH modifications. This wrapper in /usr/local/bin
-# (on default PATH) ensures `yarn lint-staged` etc. work.
-RUN printf '#!/bin/bash\nexport COREPACK_HOME=/usr/local/share/corepack\nexec /usr/bin/corepack yarn "$@"\n' \
-      > /usr/local/bin/yarn \
-    && chmod +x /usr/local/bin/yarn
 
 USER sandbox
