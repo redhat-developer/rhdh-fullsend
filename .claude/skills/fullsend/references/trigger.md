@@ -15,7 +15,7 @@ If this fails, stop and ask the user to install and authenticate `gh`.
 /fullsend trigger <agent> <#issue|#PR> [--repo owner/name] [--force]
 ```
 
-- `<agent>`: one of `code`, `fix`, `triage`, `review`, `retro`, `prioritize`
+- `<agent>`: one of `code`, `fix`, `triage`, `review`, `retro`, `prioritize`, `debug`
 - `<#issue|#PR>`: issue or PR number (with or without `#` prefix)
 - `--repo owner/name`: override repo resolution
 - `--force`: append `--force` to the comment body (only meaningful for `code`)
@@ -30,16 +30,25 @@ Follow the repo resolution order from the SKILL.md `<repo_resolution>` section.
 
 Map the agent argument to the slash command:
 
-| Agent | Slash command |
-|-------|---------------|
-| `triage` | `/fs-triage` |
-| `code` | `/fs-code` |
-| `review` | `/fs-review` |
-| `fix` | `/fs-fix` |
-| `retro` | `/fs-retro` |
-| `prioritize` | `/fs-prioritize` |
+| Agent | Slash command | Dispatch |
+|-------|---------------|----------|
+| `triage` | `/fs-triage` | built-in |
+| `code` | `/fs-code` | built-in |
+| `review` | `/fs-review` | built-in |
+| `fix` | `/fs-fix` | built-in |
+| `retro` | `/fs-retro` | built-in |
+| `prioritize` | `/fs-prioritize` | built-in |
+| `debug` | `/fs-debug` | custom workflow |
 
-If the agent name is not in this list, abort with "Unknown agent: &lt;name&gt;. Valid agents: code, fix, triage, review, retro, prioritize."
+**Built-in agents** are routed through `reusable-dispatch.yml`. **Custom agents** (like `debug`) use their own dispatch workflow — `/fs-debug` triggers `fullsend-debug-dispatch.yml`, which dispatches `fullsend-debug.yml` via `gh workflow run`.
+
+If the `/fs-debug` dispatch fails (common with `GITHUB_TOKEN` permission issues), fall back to direct dispatch:
+```bash
+gh workflow run fullsend-debug.yml --repo <owner/name> --ref main \
+  -f issue_key="<N>" -f issue_source="github"
+```
+
+If the agent name is not in this list, abort with "Unknown agent: &lt;name&gt;. Valid agents: code, fix, triage, review, retro, prioritize, debug."
 
 Also accept the full slash command form (e.g., user types `fs-code` or `/fs-code`); normalize to the agent name.
 

@@ -8,8 +8,12 @@
     "argumentHint": "<run-id | #issue>"
   },
   "trigger": {
-    "description": "Post a fullsend slash command on a GitHub issue or PR to start an agent run. Use when triggering /fs-code, /fs-triage, /fs-review, /fs-fix, /fs-retro, or /fs-prioritize.",
+    "description": "Post a fullsend slash command on a GitHub issue or PR to start an agent run. Use when triggering /fs-code, /fs-triage, /fs-review, /fs-fix, /fs-retro, /fs-prioritize, or /fs-debug.",
     "argumentHint": "<agent> <#issue|#PR> [--repo owner/name] [--force]"
+  },
+  "debug": {
+    "description": "Run sandbox environment diagnostics — checks env vars, corepack, yarn, proxy, network, filesystem, and GCP credentials. Posts results as a comment on the issue. Also documents the custom agent architecture for building new agents.",
+    "argumentHint": "<#issue> [--repo owner/name]"
   },
   "watch": {
     "description": "Monitor a triggered fullsend run until completion, then auto-inspect it. Use when waiting for a fullsend agent run to finish.",

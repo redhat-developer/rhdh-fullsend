@@ -9,6 +9,8 @@ description: |
   to set up env vars for the sandbox.
   Also use when asked to trigger a fullsend agent, post a slash command on an issue,
   watch or monitor a fullsend run, comment on an issue, or manage labels.
+  Also use when asked to run sandbox diagnostics, debug the sandbox environment,
+  check if yarn/corepack/openspec work, or build a custom fullsend agent.
 ---
 
 # /fullsend
@@ -86,6 +88,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `inspect <run-id \| #issue>` | Investigate a fullsend agent run — status, timing, output, logs |
 | `trigger <agent> <#issue\|#PR> [--repo] [--force]` | Post a fullsend slash command to start an agent |
 | `watch <#issue\|run-id> [--repo]` | Monitor a triggered run until completion, then auto-inspect |
+| `debug <#issue> [--repo]` | Run sandbox diagnostics (shortcut for `trigger debug`) |
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 
@@ -105,6 +108,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `inspect` | `references/inspect.md` |
 | `trigger` | `references/trigger.md` |
 | `watch` | `references/watch.md` |
+| `debug` | `references/debug.md` |
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
 
