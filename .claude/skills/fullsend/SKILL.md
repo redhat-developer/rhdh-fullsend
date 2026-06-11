@@ -11,6 +11,9 @@ description: |
   watch or monitor a fullsend run, comment on an issue, or manage labels.
   Also use when asked to run sandbox diagnostics, debug the sandbox environment,
   check if yarn/corepack/openspec work, or build a custom fullsend agent.
+  Also use when asked what fullsend agents are, how they work, how to use them,
+  what agents are available, how to get started with fullsend, or how the local
+  deployment is configured.
 ---
 
 # /fullsend
@@ -91,6 +94,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `debug <#issue> [--repo]` | Run sandbox diagnostics (shortcut for `trigger debug`) |
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
+| `help [topic]` | Onboarding companion — agent pipeline, local deployment overview, upstream docs |
 
 If no arguments are given, display this table and ask which the user wants.
 
@@ -111,6 +115,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `debug` | `references/debug.md` |
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
+| `help` | `references/help.md` |
 
 </routing>
 
