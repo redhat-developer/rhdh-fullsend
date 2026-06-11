@@ -128,9 +128,35 @@ gh run download <run-id> --repo <owner/name> --name <artifact-name> --dir "$TMPD
 - `openshell-sandbox.log`: look for ERROR, FATAL, OOM, timeout
 - `openshell-gateway.log`: look for TLS errors, connection failures
 
-Clean up: `rm -rf "$TMPDIR"` after reading.
+**Do NOT clean up `$TMPDIR` yet** — step 5b may need it.
 
 If artifact expired or missing, note it and skip. If the run is still `in_progress`, artifacts won't be available yet — note this.
+
+### 5b. Render transcript in browser (optional)
+
+If `claude-code-transcripts` is installed, offer to render the agent transcript as a browsable HTML page:
+
+```bash
+command -v claude-code-transcripts >/dev/null 2>&1 && echo "available" || echo "not installed"
+```
+
+If available, find the main transcript JSONL (the full conversation, not `output.jsonl`):
+
+```bash
+TRANSCRIPT=$(find "$TMPDIR" -path "*/transcripts/*.jsonl" -type f | head -1)
+```
+
+Render and open in the browser:
+
+```bash
+claude-code-transcripts json "$TRANSCRIPT" --open
+```
+
+The fullsend agent transcripts use the same JSONL format as local Claude Code sessions, so `claude-code-transcripts` renders them without conversion.
+
+If not installed, mention: "Install `pipx install claude-code-transcripts` to render agent transcripts as browsable HTML."
+
+Clean up after rendering (or after step 5 if skipping): `rm -rf "$TMPDIR"`
 
 ### 6. Report
 
