@@ -179,6 +179,20 @@ What it CANNOT see:
 
 When triggering `/fs-fix` for a CI failure, you must describe the failure in the comment text — that's the only way the agent learns what's wrong.
 
+### New Backstage package CI failures cascade
+
+When a fullsend agent creates a new plugin package (e.g., `boost-common`), CI typically fails through a sequence of gates. Each must be fixed in order — fixing one reveals the next:
+
+| CI step | What it checks | Fix command |
+|---------|---------------|-------------|
+| `build:api-reports` | `report.api.md` exists for packages with public exports | `yarn build:api-reports` |
+| `publish check` | `publishConfig`, `main`, `types`, `files` in `package.json` are correct | `yarn backstage-cli repo fix` |
+| `prettier:check` | Code formatting | `yarn prettier:fix` |
+| `lint` | ESLint | `yarn lint:all --fix` |
+| `tsc` | TypeScript compilation | `yarn tsc:full` |
+
+Running `yarn chores` from the workspace root does all of these in one pass. When triggering `/fs-fix` for a new package, consider telling the agent to run `yarn chores` instead of fixing one step at a time — it avoids the cascade. But note that `yarn chores` also runs tests, which may take longer in the sandbox.
+
 ### Downloading agent logs
 
 ```bash
