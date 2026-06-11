@@ -150,6 +150,35 @@ Expected. The sandbox policy gates network by binary. `curl` is intentionally ex
 
 `GITHUB_TOKEN` can't call `gh workflow run` in some repos due to workflow permissions settings. Workaround: trigger directly via `gh workflow run fullsend-debug.yml --repo <owner/name> --ref main -f issue_key="<N>"`.
 
+### Fix agent fixes the wrong thing
+
+The fix agent has limited context. It does NOT read CI logs, PR comments, or issue threads. Its two input channels are:
+
+| Input | Source | When populated |
+|-------|--------|----------------|
+| **`HUMAN_INSTRUCTION`** | Text after `/fs-fix` in the comment body | Human-triggered only. Bare `/fs-fix` → `"none"` |
+| **`review-body.txt`** (pre-fetched) | Latest `CHANGES_REQUESTED` review by the review bot | Bot-triggered, or when review bot requested changes |
+
+If both are empty, the agent improvises by scanning PR comments — and often fixes the wrong thing (e.g., a changeset bot warning instead of a CI failure).
+
+**Rule: never post bare `/fs-fix`.** Always include a specific instruction:
+```
+/fs-fix CI fails because report.api.md is missing. Run `yarn build:api-reports` from workspaces/boost/ and commit the generated file.
+```
+
+What the fix agent CAN read inside the sandbox:
+- `gh pr view` / `gh pr diff` — PR metadata and current diff
+- `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md` — repo conventions
+- The codebase itself (all files in the checkout)
+
+What it CANNOT see:
+- CI/GitHub Actions logs (never fetched)
+- PR inline comments (explicitly excluded by the fix-review skill)
+- Issue comments or issue body (not part of the fix flow)
+- Previous agent transcripts
+
+When triggering `/fs-fix` for a CI failure, you must describe the failure in the comment text — that's the only way the agent learns what's wrong.
+
 ### Downloading agent logs
 
 ```bash
