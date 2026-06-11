@@ -65,6 +65,17 @@ BODY = "/fs-code --force"
 
 If `--force` is passed for any other agent, warn: "`--force` is only meaningful for the code agent. Ignoring."
 
+**If agent is `fix`:** The fix agent's only context is the text after `/fs-fix` (the `HUMAN_INSTRUCTION` env var) and the pre-fetched review body. It cannot read CI logs, PR comments, or issue threads. If the user has not provided a specific instruction describing what to fix, **ask them before posting**:
+
+> "The fix agent can only see what you write after `/fs-fix` — it has no access to CI logs or PR comments. What should it fix? (e.g., 'CI fails because report.api.md is missing — run `yarn build:api-reports` and commit the result')"
+
+Append their instruction to the comment body:
+```
+BODY = "/fs-fix <instruction>"
+```
+
+Never post bare `/fs-fix` unless the user explicitly insists.
+
 ### 4. Verify the issue/PR exists
 
 ```bash
