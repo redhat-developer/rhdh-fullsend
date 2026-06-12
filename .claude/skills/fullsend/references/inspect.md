@@ -156,7 +156,92 @@ The fullsend agent transcripts use the same JSONL format as local Claude Code se
 
 If not installed, mention: "Install `pipx install claude-code-transcripts` to render agent transcripts as browsable HTML."
 
-Clean up after rendering (or after step 5 if skipping): `rm -rf "$TMPDIR"`
+Clean up after rendering (or after step 5c if skipping): `rm -rf "$TMPDIR"`
+
+### 5c. Diagnose agent behavior (when investigating failures)
+
+When the user wants to understand *why* a run failed or produced the wrong result, parse the transcript JSONL for diagnostic signals. Use `output.jsonl` (not the transcript — it's smaller and has the same tool calls).
+
+```bash
+OUTPUT=$(find "$TMPDIR" -name "output.jsonl" -path "*/iteration-1/*" | head -1)
+```
+
+Run this diagnostic script to extract key signals:
+
+```python
+python3 -c "
+import json, sys
+with open('$OUTPUT') as f:
+    lines = [json.loads(l) for l in f]
+
+# --- Extract signals ---
+yarn_installs = 0; gh_api_calls = 0; retries = {}; errors = []
+human_instruction = None; total_bash = 0; total_turns = 0
+for msg in lines:
+    if msg.get('type') == 'assistant':
+        total_turns += 1
+        for c in msg['message'].get('content', []):
+            if c.get('type') == 'tool_use' and c.get('name') == 'Bash':
+                cmd = c.get('input',{}).get('command','')
+                total_bash += 1
+                if 'yarn install' in cmd: yarn_installs += 1
+                if 'gh api' in cmd: gh_api_calls += 1
+                # Track repeated commands (retry detection)
+                key = cmd.split('&&')[0].strip()[:60]
+                retries[key] = retries.get(key, 0) + 1
+    if msg.get('type') == 'user':
+        for c in msg['message'].get('content', []):
+            text = str(c.get('content',''))
+            if 'HUMAN_INSTRUCTION=' in text:
+                human_instruction = text.split('HUMAN_INSTRUCTION=')[1].split('\n')[0]
+            if any(kw in text.lower() for kw in ['eacces','eai_again','connection refused','permission denied','getaddrinfo','403 forbidden']):
+                errors.append(text[:150])
+
+# --- Report ---
+print(f'Turns: {total_turns} | Bash calls: {total_bash}')
+print(f'HUMAN_INSTRUCTION: {human_instruction}')
+print(f'yarn install attempts: {yarn_installs}')
+print(f'gh api calls: {gh_api_calls}')
+if yarn_installs > 2: print('⚠️  YARN RETRY LOOP: agent retried yarn install {0}x'.format(yarn_installs))
+if gh_api_calls > 1 and human_instruction in (None,'none'): print('⚠️  IMPROVISATION: agent scanning comments because inputs were empty')
+repeated = [(k,v) for k,v in retries.items() if v > 2]
+if repeated: print('⚠️  RETRY LOOPS: ' + ', '.join(f'{k} ({v}x)' for k,v in repeated))
+if errors: print('⚠️  SANDBOX ERRORS:'); [print(f'  - {e}') for e in errors[:5]]
+if not errors and not repeated and yarn_installs <= 1: print('✅ No diagnostic issues detected')
+"
+```
+
+#### Diagnostic signals and what they mean
+
+| Signal | What it means | Root cause |
+|--------|--------------|------------|
+| `yarn install` > 2x | Agent retrying package install in a loop | Sandbox image missing deps or corepack misconfigured. See issue #3362 |
+| `gh api` calls + `HUMAN_INSTRUCTION=none` | Agent scanning PR comments because both inputs were empty | Bare `/fs-fix` was posted — always include an instruction |
+| `EACCES` in tool results | File permission denied in sandbox | Sandbox policy or image permissions. Check `read_write` paths in policy |
+| `EAI_AGAIN` / `getaddrinfo` | DNS resolution failed | Expected in sandbox — see HANDOFF-local-sandbox-dns.md. Use proxy-aware tools |
+| `connection refused` on port 53 | Direct DNS query from inner netns | Same DNS issue — tool must go through L7 proxy at `:3128` |
+| `403 Forbidden` from proxy | Sandbox policy blocked the request | Binary not in allowlist for that endpoint group. Check policy YAML |
+| `permission denied` on `/usr/*` | Write to read-only filesystem path | Sandbox `read_only` policy. Redirect to `/tmp/` or `/sandbox/` |
+| Repeated command > 3x | Agent stuck in retry loop | Usually a env/toolchain issue the agent can't fix by retrying |
+| High turn count (>80) with no commit | Agent thrashing without progress | Underspecified task or blocked by env issue |
+
+#### Sandbox log patterns
+
+```bash
+SANDBOX_LOG=$(find "$TMPDIR" -name "openshell-sandbox.log" | head -1)
+```
+
+| grep pattern | Meaning |
+|-------------|---------|
+| `BLOCKED` | Sandbox policy denied a network request — shows host, binary, policy group |
+| `DENIED` | Filesystem or process policy denial |
+| `OOM\|Killed\|signal 9` | Agent or subprocess killed — memory limit hit |
+| `timeout\|TIMEOUT` | Sandbox or process timeout |
+| `ALLOWED.*error` | Request allowed by policy but failed upstream (e.g., registry down) |
+
+```bash
+grep -iE 'BLOCKED|DENIED|OOM|Killed|signal 9|TIMEOUT' "$SANDBOX_LOG" | grep -v 'ALLOWED' | head -10
+```
 
 ### 6. Report
 
