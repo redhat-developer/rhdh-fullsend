@@ -185,7 +185,8 @@ Present as a linked reference table. Construct URLs as `https://github.com/fulls
 - [Retro agent](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/retro.md)
 
 ### Customization
-- [Building custom agents (RHDH guide)](references/custom-agents.md) ← our learnings from rhdh-agentic
+- [Building custom agents (upstream)](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/building-custom-agents.md) ← canonical 8-step guide
+- [Building custom agents (RHDH patterns)](references/custom-agents.md) ← our reuse strategy, limitations, worked example
 - [Customizing agents (harness config)](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-agents.md)
 - [Customizing with AGENTS.md](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-with-agents-md.md)
 - [Customizing with skills](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-with-skills.md)
