@@ -95,6 +95,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 | `help [topic]` | Onboarding companion — agent pipeline, local deployment overview, upstream docs |
+| `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
 
 If no arguments are given, display this table and ask which the user wants.
 
@@ -116,6 +117,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
 | `help` | `references/help.md` |
+| `custom-agents` | `references/custom-agents.md` |
 
 </routing>
 

@@ -82,12 +82,4 @@ The agent runs inside an untrusted sandbox. `post-debug.sh` treats all agent out
 
 ## Building more custom agents
 
-The debug agent follows the pattern from [fullsend PR #1179](https://github.com/fullsend-ai/fullsend/pull/1179) (building-custom-agents guide). To create a new custom agent:
-
-1. **Agent prompt** (`agents/<name>.md`) — YAML frontmatter + markdown instructions
-2. **Harness** (`harness/<name>.yaml`) — image, policy, host_files, timeout, post_script
-3. **Workflow** (`.github/workflows/fullsend-<name>.yml`) — standalone, replicates workspace layering + auth
-4. **Dispatch** (`.github/workflows/fullsend-<name>-dispatch.yml`) — slash-command listener
-5. **Post-script** (optional, `scripts/post-<name>.sh`) — acts on output, treats it as untrusted
-
-No changes to `config.yaml` needed — `fullsend run` does not validate config.yaml roles for standalone workflows.
+The debug agent is the worked example for the custom agents guide. For the full walkthrough — scaffold pattern, harness anatomy, workspace layering, dispatch workflow, post-script security, and limitations — see `references/custom-agents.md`.
