@@ -1,19 +1,23 @@
 # rhdh-fullsend
 
-Custom fullsend sandbox images and deployment documentation for the RHDH
-team's agent infrastructure.
+Custom sandbox images, deployment documentation, and the `/fullsend` Claude Code
+skill for the RHDH team's agent infrastructure.
 
-## Why this repo exists
+## What's in this repo
 
-The upstream [fullsend-code](https://github.com/fullsend-ai/fullsend) sandbox
-image ships with Go, Python, and shell tooling but no JavaScript package
-manager. The rhdh-plugins monorepo (23 workspaces, yarn) requires yarn to run
-tests, linting, and OpenSpec validation. Without it baked into the image, agents
-spend 10-15 minutes bootstrapping corepack/yarn on every run — and the
-workaround (a `host_files`-mounted shell script) is fragile.
+| Component | Purpose |
+|-----------|---------|
+| **Sandbox image** | Extends upstream `fullsend-code` with corepack + yarn for JS monorepos |
+| **Deployment docs** | GCP setup, repo onboarding, sandbox networking, known issues |
+| **`/fullsend` skill** | Claude Code skill for validating configs, inspecting runs, triggering agents, and building custom agents |
 
-This repo builds a single image that extends `fullsend-code:latest` with
-corepack and yarn pre-activated.
+## Getting started
+
+New to fullsend? Start here:
+
+1. Read [Repo Onboarding](docs/repo-onboarding.md) to install fullsend on a repo
+2. Run `/fullsend help` in Claude Code for the agent pipeline overview
+3. Run `/fullsend help custom-agents` to learn how to build or customize agents
 
 ## Documentation
 
@@ -25,7 +29,28 @@ corepack and yarn pre-activated.
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
 | [Known Issues](docs/known-issues.md) | Active friction points, workarounds, upstream tracking |
 
+## `/fullsend` skill
+
+The `.claude/skills/fullsend/` directory contains a Claude Code skill that
+surfaces all of this repo's knowledge interactively. Available commands:
+
+| Command | What it does |
+|---------|-------------|
+| `/fullsend validate` | Diff customized harness/env files against upstream scaffold |
+| `/fullsend inspect <run-id\|#issue>` | Investigate an agent run — status, timing, output, logs |
+| `/fullsend trigger <agent> <#issue>` | Post a slash command to start an agent |
+| `/fullsend watch <#issue>` | Monitor a run until completion, then auto-inspect |
+| `/fullsend debug <#issue>` | Run sandbox diagnostics |
+| `/fullsend comment <#issue> <msg>` | Post a comment on an issue or PR |
+| `/fullsend label <#issue> <add\|remove> <label>` | Manage issue labels |
+| `/fullsend help [topic]` | Agent pipeline, deployment overview, upstream docs |
+| `/fullsend custom-agents` | Guide for building custom standalone agents |
+
 ## Image
+
+The upstream `fullsend-code` image ships with Go, Python, and shell tooling but
+no JavaScript package manager. RHDH monorepos require yarn — without it baked
+in, agents spend 10-15 minutes bootstrapping on every run.
 
 ```
 ghcr.io/fullsend-ai/fullsend-code:latest   (upstream)
