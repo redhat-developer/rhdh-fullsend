@@ -29,6 +29,7 @@ If in a monorepo (e.g., `rhdh-plugins`), note this — the agent operates at rep
 | `agents` | Pipeline + agent catalog only |
 | `setup` / `local` | Getting started links + prerequisites only |
 | `customization` / `config` | Local deployment inspection + customization links |
+| `custom-agents` | Custom agent guide (building standalone agents) |
 
 ### 3. Agent pipeline (topic: `agents` or all)
 
@@ -156,7 +157,13 @@ For each `.env` in `customized/env/`, show what it sets:
 - yarn-proxy.env — maps HTTP_PROXY → YARN_HTTP_PROXY (yarn ignores standard proxy vars)
 ```
 
-### 5. Upstream docs (topic: `setup` or all)
+### 5. Custom agents guide (topic: `custom-agents`)
+
+Read `references/custom-agents.md` and present it as the response. This is a standalone guide — show the full content, don't summarize.
+
+If the user arrived here from a question about disabling built-in agents or running custom-only deployments, highlight the [Limitations](#limitations) section and the "Custom-only deployments" paragraph.
+
+### 6. Upstream docs (topic: `setup` or all)
 
 Present as a linked reference table. Construct URLs as `https://github.com/fullsend-ai/fullsend/blob/main/<path>`.
 
@@ -178,6 +185,8 @@ Present as a linked reference table. Construct URLs as `https://github.com/fulls
 - [Retro agent](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/retro.md)
 
 ### Customization
+- [Building custom agents (upstream)](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/building-custom-agents.md) ← canonical 8-step guide
+- [Building custom agents (RHDH patterns)](references/custom-agents.md) ← our reuse strategy, limitations, worked example
 - [Customizing agents (harness config)](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-agents.md)
 - [Customizing with AGENTS.md](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-with-agents-md.md)
 - [Customizing with skills](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/customizing-with-skills.md)
@@ -189,10 +198,11 @@ Present as a linked reference table. Construct URLs as `https://github.com/fulls
 - [Vision](https://github.com/fullsend-ai/fullsend/blob/main/docs/vision.md)
 ```
 
-### 6. Suggest next steps
+### 7. Suggest next steps
 
 Based on the context, suggest relevant `/fullsend` commands:
 
 - "Run `/fullsend validate` to check your customizations against upstream for drift."
 - "Run `/fullsend trigger code #<N>` to trigger the code agent on an issue."
+- "Run `/fullsend help custom-agents` to learn how to build a custom agent."
 - "Run `/fullsend inspect <run-id>` to investigate a specific agent run."
