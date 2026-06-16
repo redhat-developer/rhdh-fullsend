@@ -57,137 +57,7 @@ podman build -t rhdh-fullsend-code:local \
 export FULLSEND_SANDBOX_IMAGE=localhost/rhdh-fullsend-code:local
 ```
 
-### 4. Managed Mac workaround (macOS application firewall)
-
-On a managed Mac, the macOS application firewall blocks incoming TCP connections to unsigned binaries. Since the OpenShell gateway needs to be reachable from containers inside the Podman VM, we run the gateway **inside** the VM and use an SSH tunnel from the Mac to reach it.
-
-Show this architecture:
-
-```
-Mac host                          Podman VM (libkrun)
-┌─────────────────┐               ┌──────────────────────────────┐
-│ fullsend CLI    │               │ openshell-gateway (Linux)    │
-│ openshell CLI   │──SSH tunnel──▶│   └─ port 8080 (gRPC)       │
-│                 │  (port 8080)  │   └─ port 8081 (health)     │
-│                 │               │                              │
-│                 │               │ Podman containers            │
-│                 │               │   └─ sandbox container       │
-└─────────────────┘               └──────────────────────────────┘
-```
-
-#### Required Podman VM configuration
-
-```bash
-podman machine ssh -- 'sudo tee /etc/containers/containers.conf > /dev/null << EOF
-[containers]
-host_containers_internal_ip = "10.89.0.1"
-EOF'
-```
-
-#### Copy the Linux gateway binary into the VM
-
-After downloading the Linux arm64 gateway binary per upstream instructions:
-
-```bash
-cat /path/to/openshell-gateway | podman machine ssh -- \
-  "mkdir -p /home/user/bin && cat > /home/user/bin/openshell-gateway && chmod +x /home/user/bin/openshell-gateway"
-```
-
-#### Create the OpenShell network
-
-```bash
-podman network create openshell
-```
-
-#### Generate a handshake secret
-
-```bash
-HANDSHAKE_SECRET="local-$(openssl rand -hex 16)"
-echo "OPENSHELL_SSH_HANDSHAKE_SECRET=$HANDSHAKE_SECRET" > ~/.config/fullsend/gateway.env
-chmod 600 ~/.config/fullsend/gateway.env
-```
-
-#### Start the gateway inside the VM
-
-```bash
-source ~/.config/fullsend/gateway.env
-
-podman machine ssh -- "OPENSHELL_PODMAN_SOCKET='/run/podman/podman.sock' \
-  OPENSHELL_SSH_HANDSHAKE_SECRET='$OPENSHELL_SSH_HANDSHAKE_SECRET' \
-  OPENSHELL_SUPERVISOR_IMAGE='ghcr.io/nvidia/openshell/supervisor:dfd47683e7da4f1a4a8fa5d77f92d3696e6a41f9' \
-  OPENSHELL_GRPC_ENDPOINT='http://10.89.0.1:8080' \
-  nohup /home/user/bin/openshell-gateway \
-    --bind-address 0.0.0.0 --health-port 8081 --drivers podman --disable-tls \
-    --db-url 'sqlite:/home/user/gateway.db?mode=rwc' \
-    > /tmp/openshell-gateway.log 2>&1 &"
-```
-
-#### SSH tunnel from Mac to VM
-
-```bash
-SSH_PORT=$(podman machine inspect --format '{{.SSHConfig.Port}}')
-SSH_KEY=$(podman machine inspect --format '{{.SSHConfig.IdentityPath}}')
-
-ssh -f -N \
-  -L 8080:127.0.0.1:8080 \
-  -L 8081:127.0.0.1:8081 \
-  -i "$SSH_KEY" -p "$SSH_PORT" \
-  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  root@127.0.0.1
-```
-
-#### Register and verify
-
-```bash
-openshell gateway add http://127.0.0.1:8080 --local --name local
-openshell gateway select local
-curl -sf http://127.0.0.1:8081/healthz && echo "Gateway healthy"
-```
-
-### 5. Quick-start script
-
-Offer this as `~/.config/fullsend/start-gateway.sh` for one-command gateway startup:
-
-```bash
-#!/bin/bash
-set -euo pipefail
-
-source ~/.config/fullsend/gateway.env
-
-# Start Podman if needed
-podman machine list --format '{{.LastUp}}' | grep -q "Currently" || podman machine start
-
-# Kill old gateway
-podman machine ssh -- "pkill -f openshell-gateway 2>/dev/null" || true
-sleep 1
-
-# Start gateway in VM
-podman machine ssh -- "OPENSHELL_PODMAN_SOCKET='/run/podman/podman.sock' \
-  OPENSHELL_SSH_HANDSHAKE_SECRET='$OPENSHELL_SSH_HANDSHAKE_SECRET' \
-  OPENSHELL_SUPERVISOR_IMAGE='ghcr.io/nvidia/openshell/supervisor:dfd47683e7da4f1a4a8fa5d77f92d3696e6a41f9' \
-  OPENSHELL_GRPC_ENDPOINT='http://10.89.0.1:8080' \
-  nohup /home/user/bin/openshell-gateway \
-    --bind-address 0.0.0.0 --health-port 8081 --drivers podman --disable-tls \
-    --db-url 'sqlite:/home/user/gateway.db?mode=rwc' \
-    > /tmp/openshell-gateway.log 2>&1 &"
-sleep 3
-
-# SSH tunnel
-SSH_PORT=$(podman machine inspect --format '{{.SSHConfig.Port}}')
-SSH_KEY=$(podman machine inspect --format '{{.SSHConfig.IdentityPath}}')
-pkill -f "ssh.*-L 8080:127.0.0.1:8080" 2>/dev/null || true
-sleep 1
-ssh -f -N -L 8080:127.0.0.1:8080 -L 8081:127.0.0.1:8081 \
-  -i "$SSH_KEY" -p "$SSH_PORT" \
-  -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-  root@127.0.0.1
-sleep 2
-
-# Verify
-curl -sf http://127.0.0.1:8081/healthz && echo "Gateway ready" || echo "FAILED"
-```
-
-### 6. Running an RHDH agent
+### 4. Running an RHDH agent
 
 After gateway is running, show a typical triage run:
 
@@ -211,7 +81,7 @@ fullsend run triage \
 
 Refer to the upstream guide's per-agent env var tables for `code`, `review`, and `fix` agents.
 
-### 7. What to expect
+### 5. What to expect
 
 | Metric | Value |
 |--------|-------|
@@ -223,17 +93,6 @@ Refer to the upstream guide's per-agent env var tables for `code`, `review`, and
 
 Output: `/tmp/fullsend/agent-triage-*/iteration-*/output/agent-result.json`
 
-### 8. Troubleshooting (RHDH-specific)
+### 6. Troubleshooting (RHDH-specific)
 
-For generic troubleshooting (sandbox creation, missing env vars, arm64 image pulls), see the upstream guide.
-
-RHDH-specific issues:
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Gateway unreachable from container | macOS firewall blocks unsigned binaries | Run gateway inside Podman VM (see step 4) |
-| `OPENSHELL_GRPC_ENDPOINT` wrong | Containers use bridge IP, not `host.containers.internal` | Set to `http://10.89.0.1:8080` |
-| SSH tunnel dropped | Terminal closed or sleep/wake cycle | Re-run the SSH command from step 4 |
-| `openshell` network missing | Pruned by `podman system prune` | `podman network create openshell` |
-| `host containers internal IP address is empty` | `containers.conf` not set in VM | See step 4 (Podman VM configuration) |
-| `attempt to write a readonly database` | Gateway SQLite in read-only location | Use `/home/user/gateway.db` inside VM |
+For generic troubleshooting (sandbox creation, gateway connectivity, missing env vars, arm64 image pulls, Podman host-gateway), see the upstream guide.
