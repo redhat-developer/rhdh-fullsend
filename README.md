@@ -10,6 +10,7 @@ skill for the RHDH team's agent infrastructure.
 | **Sandbox image** | Extends upstream `fullsend-code` with corepack + yarn for JS monorepos |
 | **Deployment docs** | GCP setup, repo onboarding, sandbox networking, known issues |
 | **`/fullsend` skill** | Claude Code skill for validating configs, inspecting runs, triggering agents, and building custom agents |
+| **AgentsView** | Web viewer for browsing, searching, and analyzing fullsend agent run transcripts |
 
 ## Getting started
 
@@ -43,8 +44,27 @@ surfaces all of this repo's knowledge interactively. Available commands:
 | `/fullsend debug <#issue>` | Run sandbox diagnostics |
 | `/fullsend comment <#issue> <msg>` | Post a comment on an issue or PR |
 | `/fullsend label <#issue> <add\|remove> <label>` | Manage issue labels |
+| `/fullsend runs [fetch\|up\|down]` | Browse fullsend runs in AgentsView |
 | `/fullsend help [topic]` | Agent pipeline, deployment overview, upstream docs |
 | `/fullsend custom-agents` | Guide for building custom standalone agents |
+
+## AgentsView
+
+The `agentsview/` directory provides a containerized setup for browsing all
+fullsend agent run transcripts in a web UI with full-text search and analytics.
+
+```bash
+cd agentsview
+make up                                    # fetch all runs + start viewer
+AGENTSVIEW_HOST=myhost.local make up       # enable remote access
+make down                                  # stop
+```
+
+Sessions are grouped by repo and agent type (e.g. `rhdh-plugins_review`,
+`rhdh-agentic_code`). Issue numbers and run URLs are searchable. The fetch
+script is idempotent — rerun it to pick up new runs.
+
+Requires `gh` (authenticated), `jq`, and Podman or Docker.
 
 ## Image
 
