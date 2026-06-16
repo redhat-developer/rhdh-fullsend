@@ -27,7 +27,7 @@ If in a monorepo (e.g., `rhdh-plugins`), note this — the agent operates at rep
 |----------|-----------------|
 | _(none)_ | All: pipeline → local deployment → upstream links |
 | `agents` | Pipeline + agent catalog only |
-| `setup` / `local` | Getting started links + prerequisites only |
+| `setup` / `local` | Local setup guide (RHDH-specific) + upstream links |
 | `customization` / `config` | Local deployment inspection + customization links |
 | `custom-agents` | Custom agent guide (building standalone agents) |
 
@@ -163,7 +163,13 @@ Read `references/custom-agents.md` and present it as the response. This is a sta
 
 If the user arrived here from a question about disabling built-in agents or running custom-only deployments, highlight the [Limitations](#limitations) section and the "Custom-only deployments" paragraph.
 
-### 6. Upstream docs (topic: `setup` or all)
+### 6. Local setup guide (topic: `setup` or `local`)
+
+Read `references/local-setup.md` and present it as the response. This is the RHDH-specific local setup guide — it points to the upstream guide for generic steps and covers only what's specific to our deployment (GCP project, custom image, managed Mac workarounds, quick-start script).
+
+Show the full content of the reference, don't summarize.
+
+### 7. Upstream docs (topic: all, or as a reference section after setup)
 
 Present as a linked reference table. Construct URLs as `https://github.com/fullsend-ai/fullsend/blob/main/<path>`.
 
@@ -198,7 +204,7 @@ Present as a linked reference table. Construct URLs as `https://github.com/fulls
 - [Vision](https://github.com/fullsend-ai/fullsend/blob/main/docs/vision.md)
 ```
 
-### 7. Suggest next steps
+### 8. Suggest next steps
 
 Based on the context, suggest relevant `/fullsend` commands:
 
