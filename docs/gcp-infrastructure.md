@@ -85,8 +85,7 @@ No per-repo IAM binding is needed after the initial setup.
 
 ## Service accounts
 
-For local agent runs (not CI). See also
-[Local Setup — GCP Credentials](local-setup.md#step-3-gcp-credentials).
+For local agent runs (not CI). Run `/fullsend help setup` for the full local setup guide.
 
 ### Creating a service account
 

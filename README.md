@@ -24,7 +24,7 @@ New to fullsend? Start here:
 
 | Doc | What it covers |
 |-----|---------------|
-| [Local Setup](docs/local-setup.md) | Podman VM, OpenShell gateway, GCP credentials, running agents locally |
+| `/fullsend help setup` | Podman VM, OpenShell gateway, GCP credentials, running agents locally |
 | [Repo Onboarding](docs/repo-onboarding.md) | Installing fullsend on a new RHDH repo (standard and manual methods) |
 | [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
@@ -108,7 +108,9 @@ This replaces the `sandbox-yarn-setup.sh` + `host_files` workaround.
 
 ## Local agent runs
 
-See [Local Setup](docs/local-setup.md) for running agents on macOS.
+Run `/fullsend help setup` in Claude Code, or follow the
+[upstream guide](https://github.com/fullsend-ai/fullsend/blob/main/docs/guides/user/running-agents-locally.md)
+for the generic steps.
 
 ## Local build
 
