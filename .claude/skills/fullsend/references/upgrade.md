@@ -174,7 +174,40 @@ CI auto-builds on push to main when `images/code/**` changes. If no
 Containerfile changes are needed, trigger manually via `workflow_dispatch`
 on the sandbox-images workflow to pick up the new base.
 
-### 6. Update ledger
+### 6. Smoke test
+
+After PRs are merged, create a test issue on rhdh-agentic to verify
+the agent pipeline works with the upgraded scaffold and image.
+
+```bash
+gh issue create --repo redhat-developer/rhdh-agentic \
+  --title "test: smoke test after fullsend <version> upgrade" \
+  --body "Smoke test — verify triage runs correctly after scaffold upgrade.
+Expected: triage agent picks up this issue, classifies it, posts status comment.
+Close this issue if triage succeeds."
+```
+
+The `issues: opened` event auto-triggers triage. Watch the run:
+```bash
+/fullsend watch rhdh-agentic issue <N>
+```
+
+What to check:
+- Route job succeeds (dispatch workflow changes work)
+- Triage sandbox starts (image pulls correctly)
+- No credential or path errors in logs
+- Status comment posted on the issue
+
+If triage succeeds, close the issue:
+```bash
+gh issue close <N> --repo redhat-developer/rhdh-agentic \
+  --comment "Smoke test passed — triage ran successfully on <version>."
+```
+
+If it fails, inspect with `/fullsend inspect` and check the logs for
+path mismatches, credential delivery failures, or toolchain errors.
+
+### 7. Update ledger
 
 Add a new dated section to `docs/fullsend-upgrade-ledger.md` with:
 - Scope (versions, repos)
