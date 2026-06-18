@@ -198,9 +198,11 @@ What the fix agent CAN read inside the sandbox:
 
 What it CANNOT see:
 - CI/GitHub Actions logs (never fetched)
-- PR inline comments (explicitly excluded by the fix-review skill)
+- PR inline review comments (explicitly excluded by the fix-review skill)
 - Issue comments or issue body (not part of the fix flow)
 - Previous agent transcripts
+
+No fullsend agent reads PR inline review comments (`pulls/N/comments` API). The review agent *writes* them via its post-script but never reads existing ones. For the full agent visibility matrix, see the "Agent visibility reference" table in `references/trigger.md`.
 
 When triggering `/fs-fix` for a CI failure, you must describe the failure in the comment text — that's the only way the agent learns what's wrong.
 
