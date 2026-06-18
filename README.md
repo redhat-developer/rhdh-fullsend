@@ -56,7 +56,7 @@ fullsend agent run transcripts in a web UI with full-text search and analytics.
 ```bash
 cd agentsview
 make up                                    # fetch all runs + start viewer
-make local DIR=/tmp/fullsend               # import local runs + start viewer
+make local                                 # import local runs + start viewer
 AGENTSVIEW_HOST=myhost.local make up       # enable remote access
 make down                                  # stop
 ```

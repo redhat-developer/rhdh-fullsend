@@ -20,7 +20,7 @@ Sessions are grouped by repo + agent type (e.g. `rhdh-plugins_review`, `rhdh-age
 /fullsend runs                    # show status and setup instructions
 /fullsend runs fetch              # download all available runs
 /fullsend runs up                 # fetch + start AgentsView container
-/fullsend runs local <dir>        # import a local fullsend run + start viewer
+/fullsend runs local [dir]        # import local fullsend runs + start viewer
 /fullsend runs viewer             # start viewer without fetching
 /fullsend runs down               # stop the container
 ```
@@ -79,15 +79,18 @@ This runs `fetch` first (idempotent), then starts the container.
 
 ### local
 
-Import runs from fullsend's `--output-dir` and start the viewer:
+Import local fullsend runs and start the viewer:
 
 ```bash
-cd agentsview && make local DIR=/tmp/fullsend               # all runs in the output dir
+cd agentsview && make local                                  # auto-discover from $TMPDIR/fullsend
+cd agentsview && make local DIR=/tmp/fullsend                # explicit --output-dir
 cd agentsview && make local DIR=/tmp/fullsend/agent-triage-3705-1234567890  # single run
 ```
 
-The `DIR` path accepts either fullsend's `--output-dir` (discovers all `agent-*` subdirectories)
-or a single agent run directory. Idempotent — reruns skip already-imported transcripts.
+Without `DIR`, the script auto-discovers runs from `$TMPDIR/fullsend` (macOS per-user temp)
+then `/tmp/fullsend`. With `DIR`, accepts either fullsend's `--output-dir` (discovers all
+`agent-*` subdirectories) or a single agent run directory. Idempotent — reruns skip
+already-imported transcripts.
 
 Local sessions appear in AgentsView under `local_<agent>` project groups
 (e.g. `local_my-prs`, `local_triage`), distinguishable from GitHub Actions runs.

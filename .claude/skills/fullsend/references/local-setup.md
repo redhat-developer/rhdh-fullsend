@@ -164,16 +164,12 @@ Output: `/tmp/fullsend/agent-<type>-*/iteration-*/output/agent-result.json`
 After running an agent locally, import the output into AgentsView:
 
 ```bash
-cd agentsview && make local DIR=/tmp/fullsend
+cd agentsview && make local                                  # auto-discovers from $TMPDIR/fullsend
+cd agentsview && make local DIR=/tmp/fullsend/agent-triage-3705-1234567890  # single run
 ```
 
-The `DIR` path is the same as fullsend's `--output-dir` (defaults to `/tmp/fullsend`).
-All `agent-*` subdirectories are discovered and imported. A single run can also be
-imported directly:
-
-```bash
-make local DIR=/tmp/fullsend/agent-triage-3705-1234567890
-```
+Without `DIR`, the script auto-discovers runs from fullsend's default output location
+(`$TMPDIR/fullsend` on macOS). All `agent-*` subdirectories are discovered and imported.
 
 ### 9. Troubleshooting (RHDH-specific)
 

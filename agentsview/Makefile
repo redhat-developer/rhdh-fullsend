@@ -18,10 +18,10 @@ up: fetch
 	$(start-viewer)
 
 # Import local fullsend run(s) + start AgentsView (only local runs shown)
-# Usage: make local DIR=/tmp/fullsend  (same as fullsend's --output-dir)
+# Usage: make local              (auto-discovers from $TMPDIR/fullsend)
+#        make local DIR=/path    (explicit path)
 local:
-	@[ -n "$(DIR)" ] || { echo "Usage: make local DIR=/path/to/fullsend-output-dir"; exit 1; }
-	./scripts/import-local-run.sh "$(DIR)"
+	./scripts/import-local-run.sh $(if $(DIR),"$(DIR)",)
 	AGENTSVIEW_RUNS=./runs-local $(start-viewer)
 
 # Start AgentsView without fetching (use after manual imports)
@@ -37,12 +37,13 @@ help:
 	@echo ""
 	@echo "  make fetch          - Download fullsend runs from GitHub Actions"
 	@echo "  make up             - Fetch + start AgentsView (all remote runs)"
-	@echo "  make local DIR=...  - Import local run(s) + start AgentsView (local only)"
+	@echo "  make local          - Import local run(s) + start AgentsView (auto-discovers)"
 	@echo "  make viewer         - Start AgentsView without fetching"
 	@echo "  make down           - Stop AgentsView"
 	@echo ""
 	@echo "Local run examples:"
-	@echo "  make local DIR=/tmp/fullsend                              # all runs (--output-dir)"
+	@echo "  make local                                                # auto-discover"
+	@echo "  make local DIR=/tmp/fullsend                              # explicit --output-dir"
 	@echo "  make local DIR=/tmp/fullsend/agent-triage-3705-1234567890 # single run"
 	@echo ""
 	@echo "Environment variables:"

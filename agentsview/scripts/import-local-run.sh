@@ -2,16 +2,18 @@
 # Import local fullsend agent runs into AgentsView's runs/ folder.
 #
 # Usage:
-#   ./import-local-run.sh <output-dir>
-#   ./import-local-run.sh <output-dir>/agent-<name>-<issue>-<timestamp>
+#   ./import-local-run.sh                      # auto-discover from $TMPDIR/fullsend
+#   ./import-local-run.sh <output-dir>         # all runs in a specific output dir
+#   ./import-local-run.sh <agent-dir>          # single agent run directory
 #
+# Without arguments, searches $TMPDIR/fullsend then /tmp/fullsend for agent-* dirs.
 # Accepts either fullsend's --output-dir (discovers all agent-* subdirs)
 # or a single agent run directory.
 #
 # Prerequisites: jq
 #
 # Directory layout produced (matches AgentsView Claude discovery):
-#   runs/local_<agent>/local_issue-<N>_<iteration>_<transcript>.jsonl
+#   runs-local/local_<agent>/local_issue-<N>_<iteration>_<transcript>.jsonl
 
 set -euo pipefail
 
@@ -20,12 +22,25 @@ RUNS_DIR="${RUNS_DIR:-${SCRIPT_DIR}/../runs-local}"
 
 INPUT_DIR="${1:-}"
 if [ -z "$INPUT_DIR" ]; then
-  echo "Usage: $0 <fullsend-output-dir>" >&2
-  echo "" >&2
-  echo "Examples:" >&2
-  echo "  $0 /tmp/fullsend                                           # all runs" >&2
-  echo "  $0 /tmp/fullsend/agent-my-prs-48086-1781783976             # single run" >&2
-  exit 1
+  # Auto-discover: check $TMPDIR/fullsend first (macOS per-user temp), then /tmp/fullsend
+  for candidate in "${TMPDIR:-/tmp}/fullsend" "/tmp/fullsend"; do
+    if [ -d "$candidate" ] && compgen -G "${candidate}/agent-*" >/dev/null 2>&1; then
+      INPUT_DIR="$candidate"
+      break
+    fi
+  done
+  if [ -z "$INPUT_DIR" ]; then
+    echo "error: no fullsend output directory found" >&2
+    echo "" >&2
+    echo "Searched:" >&2
+    echo "  ${TMPDIR:-/tmp}/fullsend" >&2
+    echo "  /tmp/fullsend" >&2
+    echo "" >&2
+    echo "Run with an explicit path or set TMPDIR:" >&2
+    echo "  $0 /path/to/fullsend-output-dir" >&2
+    exit 1
+  fi
+  echo "Auto-discovered: $INPUT_DIR"
 fi
 
 command -v jq >/dev/null 2>&1 || { echo "error: jq is required" >&2; exit 1; }
