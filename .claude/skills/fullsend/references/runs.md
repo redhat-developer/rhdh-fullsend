@@ -10,17 +10,19 @@ Sessions are grouped by repo + agent type (e.g. `rhdh-plugins_review`, `rhdh-age
 
 ## Prerequisites
 
-- `gh` CLI authenticated with access to the target repos
+- `gh` CLI authenticated with access to the target repos (for `fetch`/`up`)
 - `jq` installed
 - Podman or Docker available
 
 ## Usage
 
 ```
-/fullsend runs              # show status and setup instructions
-/fullsend runs fetch        # download all available runs
-/fullsend runs up           # fetch + start AgentsView container
-/fullsend runs down         # stop the container
+/fullsend runs                    # show status and setup instructions
+/fullsend runs fetch              # download all available runs
+/fullsend runs up                 # fetch + start AgentsView container
+/fullsend runs local <dir>        # import a local fullsend run + start viewer
+/fullsend runs viewer             # start viewer without fetching
+/fullsend runs down               # stop the container
 ```
 
 ## Procedure
@@ -33,7 +35,7 @@ If no subcommand is given, check:
    ```bash
    mkdir -p agentsview/scripts
    ```
-2. Does `agentsview/runs/` contain any `.jsonl` files? Report the count and project breakdown.
+2. Does `agentsview/runs/` or `agentsview/runs-local/` contain any `.jsonl` files? Report the count and project breakdown for each.
 3. Is a container running? Check with:
    ```bash
    podman compose -f agentsview/docker-compose.fullsend.yaml ps 2>/dev/null || \
@@ -75,6 +77,30 @@ AGENTSVIEW_HOST=myhost.local AGENTSVIEW_PORT=8082 make up
 
 This runs `fetch` first (idempotent), then starts the container.
 
+### local
+
+Import runs from fullsend's `--output-dir` and start the viewer:
+
+```bash
+cd agentsview && make local DIR=/tmp/fullsend               # all runs in the output dir
+cd agentsview && make local DIR=/tmp/fullsend/agent-triage-3705-1234567890  # single run
+```
+
+The `DIR` path accepts either fullsend's `--output-dir` (discovers all `agent-*` subdirectories)
+or a single agent run directory. Idempotent — reruns skip already-imported transcripts.
+
+Local sessions appear in AgentsView under `local_<agent>` project groups
+(e.g. `local_my-prs`, `local_triage`), distinguishable from GitHub Actions runs.
+
+### viewer
+
+Start the AgentsView container without fetching or importing — useful when you've already
+run `make fetch` or `make local` and just want to restart the viewer:
+
+```bash
+cd agentsview && make viewer
+```
+
 ### down
 
 ```bash
@@ -84,29 +110,29 @@ cd agentsview && make down
 ## Architecture
 
 ```
-GitHub Actions artifacts (fullsend-*)
-  │
-  ▼  fetch-fullsend-runs.sh
-  │  (gh api --paginate → gh run download → inject metadata → organize)
+GitHub Actions artifacts (fullsend-*)       Local fullsend runs (--output-dir)
+  │                                           │
+  ▼  fetch-fullsend-runs.sh                   ▼  import-local-run.sh
+  │                                           │
+  ▼                                           ▼
+agentsview/runs/                            agentsview/runs-local/
+  rhdh-plugins_review/*.jsonl                 local_triage/*.jsonl
+  rhdh-agentic_code/*.jsonl                   local_my-prs/*.jsonl
+  │                                           │
+  │  (make up)                                │  (make local)
+  ▼                                           ▼
+docker-compose.fullsend.yaml
+  AGENTSVIEW_RUNS=./runs (default)    or    AGENTSVIEW_RUNS=./runs-local
   │
   ▼
-agentsview/runs/                     ← local disk, gitignored
-  rhdh-plugins_review/*.jsonl
-  rhdh-agentic_code/*.jsonl
-  ...
-  │
-  ▼  docker-compose.fullsend.yaml
-  │  (mounts ./runs as /agents/claude:ro)
-  │
-  ▼
-AgentsView container                 ← SQLite index in Docker volume
+AgentsView container
   → http://localhost:8081
   → FTS search, analytics, cost tracking
 ```
 
 Data flow:
-- **Source of truth**: JSONL files on disk in `runs/`
-- **Index**: SQLite + FTS5 in a Docker volume (rebuilt on container restart)
+- **Remote runs** go to `runs/`, **local runs** go to `runs-local/` — kept separate so `make local` shows only local sessions
+- **Index**: SQLite + FTS5 in a Docker volume, cleared on `make down` (`-v`) and rebuilt on next start
 - **GitHub artifacts expire after 90 days** — once downloaded, local copies persist
 
 ## Searching for runs

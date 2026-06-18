@@ -159,7 +159,23 @@ less /tmp/fullsend/agent-*/logs/openshell-sandbox.log
 
 Output: `/tmp/fullsend/agent-<type>-*/iteration-*/output/agent-result.json`
 
-### 8. Troubleshooting (RHDH-specific)
+### 8. Viewing local runs in AgentsView
+
+After running an agent locally, import the output into AgentsView:
+
+```bash
+cd agentsview && make local DIR=/tmp/fullsend
+```
+
+The `DIR` path is the same as fullsend's `--output-dir` (defaults to `/tmp/fullsend`).
+All `agent-*` subdirectories are discovered and imported. A single run can also be
+imported directly:
+
+```bash
+make local DIR=/tmp/fullsend/agent-triage-3705-1234567890
+```
+
+### 9. Troubleshooting (RHDH-specific)
 
 For generic troubleshooting (sandbox creation, gateway connectivity, missing env vars,
 arm64 image pulls, Podman host-gateway), see the upstream guide.
