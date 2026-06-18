@@ -14,7 +14,7 @@ services:
       - "http://${AGENTSVIEW_HOST:-localhost}:${AGENTSVIEW_PORT:-8081}"
     volumes:
       - agentsview-fullsend-data:/data
-      - ./runs:/agents/claude:ro
+      - ${AGENTSVIEW_RUNS:-./runs}:/agents/claude:ro
 
 volumes:
   agentsview-fullsend-data:

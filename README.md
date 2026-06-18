@@ -56,13 +56,15 @@ fullsend agent run transcripts in a web UI with full-text search and analytics.
 ```bash
 cd agentsview
 make up                                    # fetch all runs + start viewer
+make local                                 # import local runs + start viewer
 AGENTSVIEW_HOST=myhost.local make up       # enable remote access
 make down                                  # stop
 ```
 
 Sessions are grouped by repo and agent type (e.g. `rhdh-plugins_review`,
-`rhdh-agentic_code`). Issue numbers and run URLs are searchable. The fetch
-script is idempotent — rerun it to pick up new runs.
+`rhdh-agentic_code`). Local runs appear under `local_<agent>` groups.
+Issue numbers and run URLs are searchable. Both fetch and import are
+idempotent — rerun to pick up new runs.
 
 Requires `gh` (authenticated), `jq`, and Podman or Docker.
 
