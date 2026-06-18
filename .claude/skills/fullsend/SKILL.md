@@ -161,6 +161,20 @@ Expected. The sandbox policy gates network by binary. `curl` is intentionally ex
 
 `GITHUB_TOKEN` can't call `gh workflow run` in some repos due to workflow permissions settings. Workaround: trigger directly via `gh workflow run fullsend-debug.yml --repo <owner/name> --ref main -f issue_key="<N>"`.
 
+### Auto-rebase (stale branch)
+
+The fix agent automatically rebases the PR branch onto `origin/${TARGET_BRANCH}` before running. This happens in the pre-script, outside the sandbox, while the push token is fresh.
+
+| Scenario | What happens |
+|----------|-------------|
+| Branch is up-to-date | No-op — skips rebase entirely |
+| Branch is behind, no conflicts | Rebases and force-pushes (`--force-with-lease`), then agent runs on current base |
+| Rebase conflicts | Fails fast with `::error::` — tells human to rebase manually and re-trigger `/fs-fix` |
+
+**You no longer need to ask the agent to rebase.** If someone comments "please rebase" on a PR, just re-trigger `/fs-fix` — the pre-script handles it.
+
+**PRE_AGENT_HEAD caveat**: `PRE_AGENT_HEAD` is set by the workflow *before* the harness runs, so after a rebase it points to the old (pre-rebase) HEAD. This means post-fix.sh's `CHANGED_FILES` may include rebased upstream commits. This is harmless — if the agent made no changes, the post-script push is a no-op; if it did, the push is a fast-forward on top of the already-rebased branch.
+
 ### Fix agent fixes the wrong thing
 
 The fix agent has limited context. It does NOT read CI logs, PR comments, or issue threads. Its two input channels are:
@@ -184,9 +198,11 @@ What the fix agent CAN read inside the sandbox:
 
 What it CANNOT see:
 - CI/GitHub Actions logs (never fetched)
-- PR inline comments (explicitly excluded by the fix-review skill)
+- PR inline review comments (explicitly excluded by the fix-review skill)
 - Issue comments or issue body (not part of the fix flow)
 - Previous agent transcripts
+
+No fullsend agent reads PR inline review comments (`pulls/N/comments` API). The review agent *writes* them via its post-script but never reads existing ones. For the full agent visibility matrix, see the "Agent visibility reference" table in `references/trigger.md`.
 
 When triggering `/fs-fix` for a CI failure, you must describe the failure in the comment text — that's the only way the agent learns what's wrong.
 
