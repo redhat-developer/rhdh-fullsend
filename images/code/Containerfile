@@ -4,6 +4,8 @@
 # rhdh-plugins monorepo:
 #   - corepack enabled with yarn pre-activated (avoids 10-15 min
 #     bootstrap inside read-only /usr sandbox)
+#   - gcloud CLI for downloading E2E test artifacts from GCS
+#   - pwtrace for Playwright trace analysis during E2E failure debugging
 #   - Node.js is already in the base image (installed by Claude Code)
 #
 # Yarn is available on PATH immediately — no runtime corepack setup needed.
@@ -42,6 +44,43 @@ RUN mkdir -p "$COREPACK_HOME" \
     && corepack prepare yarn@4.12.0 --activate \
     && yarn --version \
     && chmod -R 777 "$COREPACK_HOME"
+
+# ---------------------------------------------------------------------------
+# gcloud CLI — downloads E2E test artifacts from GCS buckets.
+# Prow stores nightly/PR test results in gs://test-platform-results.
+# The e2e-failure-analysis skill's download-artifacts.py calls
+# `gcloud storage rsync` and `gcloud storage cp` to fetch them.
+#
+# Install only the base SDK (no extra components) to keep the image lean.
+# Authentication is handled at runtime via service-account keys or
+# workload identity — no credentials are baked into the image.
+#
+# Pin to a specific version for reproducible builds.
+ARG GCLOUD_VERSION=526.0.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        python3 \
+    && curl -sSL "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GCLOUD_VERSION}-linux-$(uname -m | sed 's/aarch64/arm/;s/x86_64/x86_64/').tar.gz" \
+        | tar -xz -C /opt \
+    && /opt/google-cloud-sdk/install.sh \
+        --quiet \
+        --usage-reporting false \
+        --command-completion false \
+        --path-update false \
+    && ln -s /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
+    && ln -s /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
+    && gcloud --version \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# pwtrace — Playwright trace analysis CLI for E2E failure debugging.
+# Agents use this to inspect browser actions, DOM state, console errors,
+# network requests, and screenshots from failed Playwright test traces.
+# Pinned for reproducible builds; bump manually when a new release is needed.
+RUN npm install -g pwtrace@0.3.0 \
+    && pwtrace --version
 
 # ---------------------------------------------------------------------------
 # openspec CLI — spec-driven development tooling.
