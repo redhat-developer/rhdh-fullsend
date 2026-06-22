@@ -4,6 +4,8 @@
 # rhdh-plugins monorepo:
 #   - corepack enabled with yarn pre-activated (avoids 10-15 min
 #     bootstrap inside read-only /usr sandbox)
+#   - gcloud CLI for downloading E2E test artifacts from GCS
+#   - pwtrace for Playwright trace analysis during E2E failure debugging
 #   - Node.js is already in the base image (installed by Claude Code)
 #
 # Yarn is available on PATH immediately — no runtime corepack setup needed.
@@ -42,6 +44,35 @@ RUN mkdir -p "$COREPACK_HOME" \
     && corepack prepare yarn@4.12.0 --activate \
     && yarn --version \
     && chmod -R 777 "$COREPACK_HOME"
+
+# ---------------------------------------------------------------------------
+# gcloud CLI — downloads E2E test artifacts from GCS buckets.
+# Prow stores results in gs://test-platform-results; the e2e-failure-analysis
+# skill uses `gcloud storage rsync/cp` to fetch them.
+# Auth is runtime-only (service-account key or workload identity).
+# For public buckets, agents must run:
+#   gcloud config set auth/disable_credentials true
+# before issuing gcloud storage commands.
+ARG GCLOUD_VERSION=526.0.0
+# grpcio is installed into the active sandbox venv so that `gcloud storage`
+# can load its gRPC transport layer (missing grpc causes an import error).
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+        | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+        > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update -qq \
+    && apt-get install -y --no-install-recommends google-cloud-cli=${GCLOUD_VERSION}-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && gcloud --version \
+    && pip3 install --quiet grpcio==1.81.1
+
+# ---------------------------------------------------------------------------
+# pwtrace — Playwright trace analysis CLI for E2E failure debugging.
+# Agents use this to inspect browser actions, DOM state, console errors,
+# network requests, and screenshots from failed Playwright test traces.
+# Pinned for reproducible builds; bump manually when a new release is needed.
+RUN npm install -g pwtrace@0.3.0 \
+    && pwtrace --version
 
 # ---------------------------------------------------------------------------
 # openspec CLI — spec-driven development tooling.
