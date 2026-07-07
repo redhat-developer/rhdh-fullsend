@@ -2,7 +2,7 @@
 
 COMPOSE := $(if $(shell command -v podman 2>/dev/null),podman compose,docker compose)
 
-.PHONY: fetch up down local viewer help
+.PHONY: fetch up down local sessions viewer help
 
 define start-viewer
 	$(COMPOSE) -f docker-compose.fullsend.yaml up -d
@@ -24,6 +24,12 @@ local:
 	./scripts/import-local-run.sh $(if $(DIR),"$(DIR)",)
 	AGENTSVIEW_RUNS=./runs-local $(start-viewer)
 
+# Browse shared team sessions in AgentsView
+sessions:
+	@SESSIONS_REPO=$$(. ~/.config/fullsend/sessions.env 2>/dev/null && echo $$FULLSEND_SESSIONS_REPO); \
+	if [ -z "$$SESSIONS_REPO" ]; then echo "error: FULLSEND_SESSIONS_REPO not set in ~/.config/fullsend/sessions.env" >&2; exit 1; fi; \
+	AGENTSVIEW_RUNS=$$SESSIONS_REPO $(start-viewer)
+
 # Start AgentsView without fetching (use after manual imports)
 viewer:
 	$(start-viewer)
@@ -38,6 +44,7 @@ help:
 	@echo "  make fetch          - Download fullsend runs from GitHub Actions"
 	@echo "  make up             - Fetch + start AgentsView (all remote runs)"
 	@echo "  make local          - Import local run(s) + start AgentsView (auto-discovers)"
+	@echo "  make sessions       - Browse shared team sessions in AgentsView"
 	@echo "  make viewer         - Start AgentsView without fetching"
 	@echo "  make down           - Stop AgentsView"
 	@echo ""

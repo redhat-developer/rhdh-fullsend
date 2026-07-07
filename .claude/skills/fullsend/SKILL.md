@@ -17,6 +17,8 @@ description: |
   Also use when asked to browse, view, or search fullsend runs in AgentsView,
   download run transcripts, start or stop the AgentsView viewer, or check
   agent run history.
+  Also use when asked to share, export, push, or pull Claude Code sessions,
+  configure session sharing, or view shared team sessions.
   Also use when asked to upgrade fullsend, sync scaffold files with a new
   version, update the CLI, bump fullsend, or check what version we're on.
 ---
@@ -100,6 +102,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 | `runs [fetch\|up\|down]` | Browse fullsend runs in AgentsView — fetch transcripts, start/stop viewer |
+| `sessions [push\|pull\|view]` | Share team Claude Code sessions via git repo — export, sync, browse |
 | `upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release |
 | `help [topic]` | Onboarding companion — agent pipeline, local deployment overview, upstream docs |
 | `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
@@ -124,6 +127,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
 | `runs` | `references/runs.md` |
+| `sessions` | `references/sessions.md` |
 | `upgrade` | `references/upgrade.md` |
 | `help` | `references/help.md` |
 | `custom-agents` | `references/custom-agents.md` |
