@@ -259,6 +259,22 @@ for repo_dir in "$ARTIFACTS_DIR"/*/; do
       duration_s=$(jq -r '(.duration_ms // 0) / 1000 | floor' "$summary_file")
       num_turns=$(jq -r '.metrics.num_turns // empty' "$summary_file")
     fi
+    # Fallback: extract PR/issue number from the workflow log's event_payload
+    if [ -z "$issue_num" ] || [ "$issue_num" = "unknown" ]; then
+      log_file_path=""
+      wf_log=$(jq -r '.workflow_log // empty' "$meta_file")
+      if [ -n "$wf_log" ] && [ -f "${repo_dir}/${wf_log}" ]; then
+        log_file_path="${repo_dir}/${wf_log}"
+      fi
+      if [ -n "$log_file_path" ]; then
+        payload_num=$(sed -nE 's/.*event_payload.*"(pull_request|issue)".*"number":([0-9]+).*/\2/p' "$log_file_path" | head -1)
+        if [ -n "$payload_num" ]; then
+          issue_num="$payload_num"
+          payload_type=$(sed -nE 's/.*event_payload.*"(pull_request)".*"number":[0-9]+.*/\1/p' "$log_file_path" | head -1)
+          [ "$payload_type" = "pull_request" ] && entity_type="pr"
+        fi
+      fi
+    fi
     [ -z "$issue_num" ] && issue_num="unknown"
 
     # Extract agent result (triage summary, review comment, etc.)
@@ -317,12 +333,39 @@ for repo_dir in "$ARTIFACTS_DIR"/*/; do
 
     context_line=$(build_execution_context_line "$agent_name" "$created" "$meta_file" "$agent_dir" "$repo_dir" || true)
 
+    # Session title for ai-title rewriting
+    session_title="${agent_name} ${entity_type} #${issue_num} - run ${run_id} [${conclusion}${title_extra}]"
+
     # --- Write main session ---
     {
       echo "$agent_setting_line"
       echo "$meta_line"
       [ -n "$context_line" ] && echo "$context_line"
-      cat "$main_jsonl"
+      # Filter the original transcript:
+      #   - Rewrite ai-title to use the metadata header text
+      #   - Strip queue-operation records (internal task-queue bookkeeping with raw XML)
+      #   - Strip attachment records for task-notifications (also raw XML)
+      python3 -c "
+import json, sys
+title, path = sys.argv[1], sys.argv[2]
+for line in open(path):
+    line = line.rstrip('\n')
+    if not line:
+        continue
+    try:
+        obj = json.loads(line)
+    except json.JSONDecodeError:
+        print(line)
+        continue
+    t = obj.get('type', '')
+    if t == 'queue-operation':
+        continue
+    if t == 'ai-title':
+        obj['aiTitle'] = title
+    elif t == 'attachment' and obj.get('attachment', {}).get('commandMode') == 'task-notification':
+        continue
+    print(json.dumps(obj, ensure_ascii=False, separators=(',', ':')))
+" "$session_title" "$main_jsonl"
       [ -n "$result_line" ] && echo "$result_line"
     } > "$session_file"
     echo "    -> ${repo_name}/${session_id}.jsonl"
