@@ -45,29 +45,36 @@ If no subcommand is given, check:
 
 ### fetch
 
-Run the fetch script:
+Download recent artifacts and convert them into the AgentsView layout:
 ```bash
-cd agentsview && ./scripts/fetch-fullsend-runs.sh
+cd agentsview && make fetch
 ```
 
-The script:
-- Paginates through all GitHub Actions artifacts matching `fullsend-*`
-- Skips already-downloaded runs (idempotent)
-- Extracts main session transcript (skips subagent `*-agent-a*` files)
+The two-phase pipeline:
+- Queries exact fullsend artifact names instead of enumerating unrelated artifacts
+- Caches ZIPs and run metadata under `artifacts/<repo>/`
+- Skips already-downloaded artifacts and converted sessions (idempotent)
+- Extracts main and subagent transcripts into the native nested layout
 - Injects metadata header (`agent entity #N - run ID [conclusion · cost · duration · turns]`)
 - Reconstructs agent system prompt from scaffold sources when `FULLSEND_SCAFFOLD_DIR` is set
 - Organizes into `runs/<repo>/` directories
 
 Custom repos can be passed as arguments:
 ```bash
-./scripts/fetch-fullsend-runs.sh org/repo1 org/repo2
+./scripts/fetch-artifacts.sh org/repo1 org/repo2
+./scripts/convert-artifacts.sh
 ```
 
-Default repos: `redhat-developer/rhdh-agentic`, `redhat-developer/rhdh-plugins`.
+Default repos: `redhat-developer/rhdh-agentic`, `redhat-developer/rhdh-plugins`,
+and `redhat-developer/rhdh-plugin-export-overlays`.
+
+The default artifact names are `fullsend-code`, `fullsend-debug`, `fullsend-fix`,
+`fullsend-retro`, `fullsend-review`, and `fullsend-triage`. Override the list for
+custom agents with `FULLSEND_ARTIFACT_NAMES="fullsend-code fullsend-my-agent"`.
 
 ### System prompt reconstruction
 
-When `FULLSEND_SCAFFOLD_DIR` is set, `fetch-fullsend-runs.sh` reconstructs each agent's
+When `FULLSEND_SCAFFOLD_DIR` is set, `convert-artifacts.sh` reconstructs each agent's
 effective system prompt and injects it as a synthetic user message (visible as the first
 chat message in AgentsView). The prompt is assembled from:
 
@@ -78,10 +85,10 @@ chat message in AgentsView). The prompt is assembled from:
 
 ```bash
 FULLSEND_SCAFFOLD_DIR=/path/to/fullsend/internal/scaffold/fullsend-repo \
-  ./scripts/fetch-fullsend-runs.sh
+  ./scripts/convert-artifacts.sh --force
 ```
 
-If unset, prompt reconstruction is silently skipped — backwards compatible.
+If unset, conversion continues without prompt reconstruction.
 
 ### up
 
@@ -95,6 +102,7 @@ AGENTSVIEW_HOST=myhost.local AGENTSVIEW_PORT=8082 make up
 ```
 
 This runs `fetch` first (idempotent), then starts the container.
+`AGENTSVIEW_HOST` defaults to `<hostname>.local`; localhost remains a trusted origin.
 
 ### local
 
@@ -134,7 +142,10 @@ cd agentsview && make down
 ```
 GitHub Actions artifacts (fullsend-*)       Local fullsend runs (--output-dir)
   │                                           │
-  ▼  fetch-fullsend-runs.sh                   ▼  import-local-run.sh
+  ▼  fetch-artifacts.sh                       ▼  import-local-run.sh
+agentsview/artifacts/<repo>/
+  │  cached ZIP + metadata sidecar
+  ▼  convert-artifacts.sh
   │  + prompt reconstruction                  │
   ▼                                           ▼
 agentsview/runs/                            agentsview/runs-local/
@@ -154,6 +165,7 @@ AgentsView container
 
 Data flow:
 - **Remote runs** go to `runs/`, **local runs** go to `runs-local/` — kept separate so `make local` shows only local sessions
+- **Artifact cache** lives in `artifacts/`, so conversion can be rerun without downloading from GitHub again
 - **Index**: SQLite + FTS5 in a Docker volume, cleared on `make down` (`-v`) and rebuilt on next start
 - **GitHub artifacts expire after 90 days** — once downloaded, local copies persist
 
