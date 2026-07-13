@@ -20,7 +20,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-${SCRIPT_DIR}/../artifacts}"
 RUNS_DIR="${RUNS_DIR:-${SCRIPT_DIR}/../runs}"
-SCAFFOLD_DIR="${FULLSEND_SCAFFOLD_DIR:-}"
 
 # --- Parse flags --------------------------------------------------------
 FORCE=false
@@ -43,91 +42,115 @@ if [ "$FORCE" = true ]; then
 fi
 mkdir -p "$RUNS_DIR"
 
-# --- System prompt reconstruction --------------------------------------
-if [ -z "$SCAFFOLD_DIR" ]; then
-  echo "[info] FULLSEND_SCAFFOLD_DIR not set — skipping prompt reconstruction"
-fi
+# --- Fullsend execution-context reconstruction -------------------------
+# Backticks below are literal Markdown in printf format strings.
+# shellcheck disable=SC2016,SC2129
+build_execution_context_line() {
+  local agent_name="$1" ts="$2" meta_file="$3" agent_dir="$4" repo_dir="$5"
+  local head_sha revision_dir workflow_log log_file output_jsonl init_json
+  local agent_path harness_path policy_path agent_file harness_file policy_file
+  local claude_file agents_file tmpfile
 
-build_prompt_line() {
-  local agent_name="$1" ts="$2" repo_claude_md="$3" repo_agents_md="$4"
-
-  if [ -z "$SCAFFOLD_DIR" ]; then
-    return 0
+  head_sha=$(jq -r '.head_sha // empty' "$meta_file")
+  revision_dir="${repo_dir}/revisions/${head_sha}"
+  workflow_log=$(jq -r '.workflow_log // empty' "$meta_file")
+  log_file=""
+  if [ -n "$workflow_log" ] && [ "$(basename "$workflow_log")" = "$workflow_log" ] && \
+     [ -f "${repo_dir}/${workflow_log}" ]; then
+    log_file="${repo_dir}/${workflow_log}"
   fi
 
-  local sections=()
+  agent_path=$(jq -r '.context.agent_path // empty' "$meta_file")
+  harness_path=$(jq -r '.context.harness_path // empty' "$meta_file")
+  policy_path=$(jq -r '.context.policy_path // empty' "$meta_file")
+  agent_file="${revision_dir}/${agent_path}"
+  harness_file="${revision_dir}/${harness_path}"
+  policy_file="${revision_dir}/${policy_path}"
+  claude_file="${revision_dir}/CLAUDE.md"
+  agents_file="${revision_dir}/AGENTS.md"
 
-  # 1. Agent definition
-  local agent_file="${SCAFFOLD_DIR}/agents/${agent_name}.md"
-  if [ -f "$agent_file" ]; then
-    sections+=("## Agent Definition\n\n$(cat "$agent_file")")
+  output_jsonl=$(find "$agent_dir" -type f -path '*/iteration-*/output.jsonl' | sort | head -1)
+  init_json='{}'
+  if [ -n "$output_jsonl" ] && [ -f "$output_jsonl" ]; then
+    init_json=$(jq -sc '[.[] | select(.type == "system" and .subtype == "init")][0] // {}' \
+      "$output_jsonl" 2>/dev/null || printf '{}')
   fi
 
-  # 2. Project instructions (CLAUDE.md + AGENTS.md)
-  local project_section=""
-  if [ -n "$repo_claude_md" ]; then
-    project_section="### CLAUDE.md\n\n${repo_claude_md}"
-  fi
+  tmpfile=$(mktemp)
+  printf '📋 Fullsend Execution Context\n\n' > "$tmpfile"
+  printf "> Built from the workflow provenance and Claude runtime metadata available in this cached run. This is not Claude's proprietary built-in system prompt.\n\n" >> "$tmpfile"
 
-  local agents_md_content="$repo_agents_md"
-  if [ -z "$agents_md_content" ] && [ -f "${SCAFFOLD_DIR}/AGENTS.md" ]; then
-    agents_md_content="$(cat "${SCAFFOLD_DIR}/AGENTS.md")"
-  fi
-  if [ -n "$agents_md_content" ]; then
-    [ -n "$project_section" ] && project_section="${project_section}\n\n"
-    project_section="${project_section}### AGENTS.md\n\n${agents_md_content}"
-  fi
-
-  if [ -z "$repo_claude_md" ] && [ -n "$agents_md_content" ]; then
-    local bridge="Project rules and instructions live in [AGENTS.md](AGENTS.md). Read that file now — it is the single source of truth for all agent-facing guidance in this repo."
-    project_section="### CLAUDE.md (bridge)\n\n${bridge}\n\n${project_section}"
-  fi
-
-  if [ -n "$project_section" ]; then
-    sections+=("## Project Instructions\n\n${project_section}")
-  fi
-
-  # 3. Skills from harness YAML
-  local harness_file="${SCAFFOLD_DIR}/harness/${agent_name}.yaml"
-  if [ -f "$harness_file" ]; then
-    local skills_section=""
-    while IFS= read -r skill_path; do
-      local skill_name
-      skill_name=$(basename "$skill_path")
-      local skill_file="${SCAFFOLD_DIR}/${skill_path}/SKILL.md"
-      if [ -f "$skill_file" ]; then
-        [ -n "$skills_section" ] && skills_section="${skills_section}\n\n---\n\n"
-        skills_section="${skills_section}### ${skill_name}\n\n$(cat "$skill_file")"
-      fi
-    done < <(grep -E '^\s*- skills/' "$harness_file" | sed 's/^[[:space:]]*- //')
-
-    if [ -n "$skills_section" ]; then
-      sections+=("## Skills\n\n${skills_section}")
+  printf '## Provenance\n\n' >> "$tmpfile"
+  printf -- '- Agent: `%s`\n' "$agent_name" >> "$tmpfile"
+  [ -n "$head_sha" ] && printf -- '- Target revision: `%s`\n' "$head_sha" >> "$tmpfile"
+  local job_name
+  job_name=$(jq -r '.job_name // empty' "$meta_file")
+  [ -n "$job_name" ] && printf -- '- Workflow job: `%s`\n' "$job_name" >> "$tmpfile"
+  if [ -n "$log_file" ]; then
+    local fullsend_version image resolved_urls
+    fullsend_version=$(sed -nE 's/.*fullsend ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' "$log_file" | tail -1)
+    image=$(sed -nE 's#.*Image: ([^[:space:]]+).*#\1#p' "$log_file" | tail -1)
+    [ -n "$fullsend_version" ] && printf -- '- Fullsend: `%s`\n' "$fullsend_version" >> "$tmpfile"
+    [ -n "$image" ] && printf -- '- Sandbox image: `%s`\n' "$image" >> "$tmpfile"
+    resolved_urls=$(sed -nE 's#.*Base: (https://[^[:space:]]+).*#\1#p' "$log_file" | sort -u)
+    if [ -n "$resolved_urls" ]; then
+      printf '\n### Resolved remote resources\n\n' >> "$tmpfile"
+      while IFS= read -r resource_url; do
+        [ -n "$resource_url" ] && printf -- '- <%s>\n' "$resource_url" >> "$tmpfile"
+      done <<< "$resolved_urls"
     fi
   fi
 
-  if [ ${#sections[@]} -eq 0 ]; then
-    return 0
+  if [ "$init_json" != '{}' ]; then
+    local model claude_version permission_mode cwd tools agents skills plugins
+    model=$(echo "$init_json" | jq -r '.model // empty')
+    claude_version=$(echo "$init_json" | jq -r '.claude_code_version // empty')
+    permission_mode=$(echo "$init_json" | jq -r '.permissionMode // empty')
+    cwd=$(echo "$init_json" | jq -r '.cwd // empty')
+    tools=$(echo "$init_json" | jq -r '(.tools // []) | join(", ")')
+    agents=$(echo "$init_json" | jq -r '(.agents // []) | join(", ")')
+    skills=$(echo "$init_json" | jq -r '(.skills // []) | join(", ")')
+    plugins=$(echo "$init_json" | jq -r '(.plugins // []) | map(.name) | join(", ")')
+
+    printf '\n## Claude Runtime\n\n' >> "$tmpfile"
+    [ -n "$model" ] && printf -- '- Model: `%s`\n' "$model" >> "$tmpfile"
+    [ -n "$claude_version" ] && printf -- '- Claude Code: `%s`\n' "$claude_version" >> "$tmpfile"
+    [ -n "$permission_mode" ] && printf -- '- Permission mode: `%s`\n' "$permission_mode" >> "$tmpfile"
+    [ -n "$cwd" ] && printf -- '- Working directory: `%s`\n' "$cwd" >> "$tmpfile"
+    [ -n "$tools" ] && printf -- '- Tools: %s\n' "$tools" >> "$tmpfile"
+    [ -n "$agents" ] && printf -- '- Agents: %s\n' "$agents" >> "$tmpfile"
+    [ -n "$skills" ] && printf -- '- Available skills: %s\n' "$skills" >> "$tmpfile"
+    [ -n "$plugins" ] && printf -- '- Plugins: %s\n' "$plugins" >> "$tmpfile"
+    [ -n "$skills" ] && printf '\nFull skill instructions appear later in the transcript when a skill is actually loaded.\n' >> "$tmpfile"
   fi
 
-  local body
-  body=$(printf '%s' "${sections[0]}")
-  local idx
-  for ((idx=1; idx < ${#sections[@]}; idx++)); do
-    body=$(printf '%s\n\n---\n\n%s' "$body" "${sections[$idx]}")
-  done
+  if [ -n "$agent_path" ] && [ -f "$agent_file" ]; then
+    printf '\n---\n\n## Agent Definition\n\n_Source: `%s` at `%s`_\n\n' "$agent_path" "$head_sha" >> "$tmpfile"
+    printf '%s\n' "$(cat "$agent_file")" >> "$tmpfile"
+  fi
 
-  local prompt_content
-  prompt_content=$(printf '📋 System Prompt (reconstructed)\n\n%b' "$body")
+  if [ -f "$claude_file" ] || [ -f "$agents_file" ]; then
+    printf '\n---\n\n## Project Instructions\n' >> "$tmpfile"
+    if [ -f "$claude_file" ]; then
+      printf '\n### CLAUDE.md\n\n%s\n' "$(cat "$claude_file")" >> "$tmpfile"
+    fi
+    if [ -f "$agents_file" ]; then
+      printf '\n### AGENTS.md\n\n%s\n' "$(cat "$agents_file")" >> "$tmpfile"
+    fi
+  fi
 
-  local tmpfile
-  tmpfile=$(mktemp)
-  printf '%s' "$prompt_content" > "$tmpfile"
+  if [ -n "$harness_path" ] && [ -f "$harness_file" ]; then
+    printf '\n---\n\n## Harness\n\n_Source: `%s` at `%s`_\n\n```yaml\n%s\n```\n' \
+      "$harness_path" "$head_sha" "$(cat "$harness_file")" >> "$tmpfile"
+  fi
+  if [ -n "$policy_path" ] && [ -f "$policy_file" ]; then
+    printf '\n## Policy\n\n_Source: `%s` at `%s`_\n\n```yaml\n%s\n```\n' \
+      "$policy_path" "$head_sha" "$(cat "$policy_file")" >> "$tmpfile"
+  fi
 
   jq -nc --rawfile content "$tmpfile" \
     --arg ts "$ts" \
     '{type: "user", timestamp: $ts, message: {content: $content}}'
-
   rm -f "$tmpfile"
 }
 
@@ -146,12 +169,6 @@ for repo_dir in "$ARTIFACTS_DIR"/*/; do
   echo "--- $repo_name ---"
   dest_dir="${RUNS_DIR}/${repo_name}"
   mkdir -p "$dest_dir"
-
-  # Read cached repo CLAUDE.md / AGENTS.md
-  repo_claude_md=""
-  repo_agents_md=""
-  [ -f "${repo_dir}/CLAUDE.md" ] && repo_claude_md=$(cat "${repo_dir}/CLAUDE.md")
-  [ -f "${repo_dir}/AGENTS.md" ] && repo_agents_md=$(cat "${repo_dir}/AGENTS.md")
 
   for zip_file in "$repo_dir"/*.zip; do
     [ -f "$zip_file" ] || continue
@@ -208,12 +225,14 @@ for repo_dir in "$ARTIFACTS_DIR"/*/; do
     session_id=$(basename "$main_jsonl" .jsonl)
     session_file="${dest_dir}/${session_id}.jsonl"
 
-    # Skip if already converted
-    if [ -f "$session_file" ]; then
+    # Keep complete sessions idempotent, but automatically upgrade sessions
+    # created by the old prompt-less/scaffold-based converter.
+    if [ -f "$session_file" ] && grep -Fq '📋 Fullsend Execution Context' "$session_file"; then
       total_skipped=$((total_skipped + 1))
       rm -rf "$tmpdir"
       continue
     fi
+    [ -f "$session_file" ] && echo "  [refresh] execution context: $base"
 
     echo "  $run_id | $agent_name | $conclusion"
 
@@ -296,13 +315,13 @@ for repo_dir in "$ARTIFACTS_DIR"/*/; do
         }')
     fi
 
-    prompt_line=$(build_prompt_line "$agent_name" "$created" "$repo_claude_md" "$repo_agents_md" || true)
+    context_line=$(build_execution_context_line "$agent_name" "$created" "$meta_file" "$agent_dir" "$repo_dir" || true)
 
     # --- Write main session ---
     {
       echo "$agent_setting_line"
       echo "$meta_line"
-      [ -n "$prompt_line" ] && echo "$prompt_line"
+      [ -n "$context_line" ] && echo "$context_line"
       cat "$main_jsonl"
       [ -n "$result_line" ] && echo "$result_line"
     } > "$session_file"

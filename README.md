@@ -64,8 +64,10 @@ make down                                  # stop
 
 Sessions are grouped by repo and agent type (e.g. `rhdh-plugins_review`,
 `rhdh-agentic_code`). Local runs appear under `local_<agent>` groups.
-Issue numbers and run URLs are searchable. Both fetch and import are
-idempotent — rerun to pick up new runs.
+Issue numbers and run URLs are searchable. Remote sessions include the exact
+Fullsend agent configuration, project instructions, workflow provenance, and
+Claude runtime metadata from the run. Both fetch and import are idempotent —
+rerun to pick up new runs.
 
 Requires `gh` (authenticated), `jq`, and Podman or Docker.
 

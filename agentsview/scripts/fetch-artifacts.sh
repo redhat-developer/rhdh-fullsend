@@ -4,8 +4,10 @@ set -euo pipefail
 # Phase 1: Download fullsend artifact ZIPs from GitHub Actions.
 #
 # Artifacts are cached in artifacts/<repo>/<run_id>_<artifact_name>.zip
-# with a sidecar .json containing run metadata.  Conversion into the
-# AgentsView layout is handled separately by convert-artifacts.sh.
+# with .json metadata and .log workflow-job sidecars. Revision-pinned files
+# used to assemble the agent context are cached once under
+# artifacts/<repo>/revisions/<head_sha>/. Conversion into the AgentsView
+# layout is handled separately by convert-artifacts.sh.
 #
 # Usage:
 #   ./fetch-artifacts.sh                          # default repos (7 days)
@@ -75,20 +77,59 @@ echo
 
 total_fetched=0
 total_skipped=0
+total_logs_fetched=0
+
+cache_revision_file() {
+  local repo="$1" ref="$2" relative_path="$3" revision_dir="$4"
+  [ -n "$relative_path" ] || return 1
+  case "$relative_path" in
+    /*|*../*) return 1 ;;
+  esac
+
+  local destination="${revision_dir}/${relative_path}"
+  [ -f "$destination" ] && return 0
+
+  local encoded tmpfile
+  if ! encoded=$(gh api -X GET "repos/${repo}/contents/${relative_path}" \
+      -f ref="$ref" --jq '.content // empty' 2>/dev/null); then
+    return 1
+  fi
+  [ -n "$encoded" ] || return 1
+
+  mkdir -p "$(dirname "$destination")"
+  tmpfile=$(mktemp)
+  if ! printf '%s' "$encoded" | base64 -d > "$tmpfile" 2>/dev/null; then
+    rm -f "$tmpfile"
+    return 1
+  fi
+  mv "$tmpfile" "$destination"
+}
+
+first_cached_revision_path() {
+  local repo="$1" ref="$2" revision_dir="$3"
+  shift 3
+  local candidate
+  for candidate in "$@"; do
+    [ -n "$candidate" ] || continue
+    if cache_revision_file "$repo" "$ref" "$candidate" "$revision_dir"; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+log_context_path() {
+  local log_file="$1" label="$2"
+  sed -nE "s#.*${label}: .*/(\\.fullsend/[^[:space:]]+).*#\\1#p" "$log_file" | tail -1
+}
 
 for repo in "${REPOS[@]}"; do
   repo_name=$(basename "$repo")
   echo "--- $repo ---"
 
-  # Cache repo CLAUDE.md / AGENTS.md (for prompt reconstruction in convert step)
   repo_dir="${ARTIFACTS_DIR}/${repo_name}"
   mkdir -p "$repo_dir"
-
-  repo_claude=$(gh api "repos/${repo}/contents/CLAUDE.md" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || true)
-  [ -n "$repo_claude" ] && printf '%s' "$repo_claude" > "${repo_dir}/CLAUDE.md"
-
-  repo_agents=$(gh api "repos/${repo}/contents/AGENTS.md" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null || true)
-  [ -n "$repo_agents" ] && printf '%s' "$repo_agents" > "${repo_dir}/AGENTS.md"
 
   # Query exact fullsend artifact names at the API level. Busy repositories can
   # retain tens of thousands of unrelated artifacts, so fetching every page and
@@ -136,36 +177,99 @@ for repo in "${REPOS[@]}"; do
     created=$(echo "$artifacts" | jq -r ".[$i].created")
 
     zip_file="${repo_dir}/${run_id}_${art_name}.zip"
+    meta_file="${zip_file%.zip}.json"
+    log_file="${zip_file%.zip}.log"
+    agent_name=${art_name#fullsend-}
 
-    # Cache hit — ZIP already downloaded
-    if [ -f "$zip_file" ]; then
+    # A complete cache hit needs all three sidecars. Older caches only have the
+    # ZIP and minimal JSON, so let them fall through for in-place enrichment.
+    if [ -f "$zip_file" ] && [ -f "$log_file" ] && [ -f "$meta_file" ] && \
+       [ -n "$(jq -r '.head_sha // empty' "$meta_file" 2>/dev/null)" ]; then
       total_skipped=$((total_skipped + 1))
       continue
     fi
 
-    # Fetch run metadata (conclusion, URL)
+    # Fetch immutable run provenance as well as display metadata.
     run_meta=$(gh api "repos/${repo}/actions/runs/${run_id}" \
-      --jq '{conclusion:.conclusion, url:.html_url}' 2>/dev/null) || continue
+      --jq '{conclusion:.conclusion, url:.html_url, head_sha:.head_sha, head_branch:.head_branch, event:.event}' 2>/dev/null) || continue
     conclusion=$(echo "$run_meta" | jq -r '.conclusion')
     run_url=$(echo "$run_meta" | jq -r '.url')
+    head_sha=$(echo "$run_meta" | jq -r '.head_sha // empty')
+    head_branch=$(echo "$run_meta" | jq -r '.head_branch // empty')
+    event=$(echo "$run_meta" | jq -r '.event // empty')
 
     echo "  run $run_id | $art_name | $conclusion"
 
-    # Download artifact ZIP via GitHub API
-    http_code=$(curl -sL -w '%{http_code}' \
-      -H "Authorization: Bearer ${GH_TOKEN}" \
-      -H "Accept: application/vnd.github+json" \
-      "https://api.github.com/repos/${repo}/actions/artifacts/${art_id}/zip" \
-      -o "$zip_file" 2>/dev/null)
+    if [ ! -f "$zip_file" ]; then
+      # Download artifact ZIP via GitHub API.
+      http_code=$(curl -sL -w '%{http_code}' \
+        -H "Authorization: Bearer ${GH_TOKEN}" \
+        -H "Accept: application/vnd.github+json" \
+        "https://api.github.com/repos/${repo}/actions/artifacts/${art_id}/zip" \
+        -o "$zip_file" 2>/dev/null)
 
-    if [ "$http_code" != "200" ]; then
-      rm -f "$zip_file"
-      echo "    (download failed: HTTP $http_code)"
-      continue
+      if [ "$http_code" != "200" ]; then
+        rm -f "$zip_file"
+        echo "    (download failed: HTTP $http_code)"
+        continue
+      fi
+      total_fetched=$((total_fetched + 1))
     fi
 
-    # Write metadata sidecar (everything the convert step needs)
-    agent_name=${art_name#fullsend-}
+    # Select the job that actually ran this agent, then cache its complete log.
+    job_id=""
+    job_name=""
+    if jobs=$(gh api "repos/${repo}/actions/runs/${run_id}/jobs?per_page=100" 2>/dev/null); then
+      job=$(echo "$jobs" | jq -c --arg agent "$agent_name" '
+        ([.jobs[] | select(any(.steps[]?; ((.name | ascii_downcase) == ("run " + ($agent | ascii_downcase) + " agent"))))] | first)
+        // ([.jobs[] | select(.conclusion != "skipped" and (.steps | length) > 0)] | last)
+        // {}')
+      job_id=$(echo "$job" | jq -r '.id // empty')
+      job_name=$(echo "$job" | jq -r '.name // empty')
+    fi
+
+    if [ ! -f "$log_file" ] && [ -n "$job_id" ]; then
+      tmp_log=$(mktemp)
+      if gh run view "$run_id" --repo "$repo" --job "$job_id" --log > "$tmp_log" 2>/dev/null && \
+         [ -s "$tmp_log" ]; then
+        mv "$tmp_log" "$log_file"
+        total_logs_fetched=$((total_logs_fetched + 1))
+      else
+        rm -f "$tmp_log"
+        echo "    [warn] could not download workflow job log"
+      fi
+    fi
+
+    # Cache the exact repository instructions and local Fullsend configuration
+    # from the commit that the workflow checked out. Revisions are shared by
+    # many runs, so each file is downloaded only once per SHA.
+    agent_path=""
+    harness_path=""
+    policy_path=""
+    if [ -n "$head_sha" ]; then
+      revision_dir="${repo_dir}/revisions/${head_sha}"
+      mkdir -p "$revision_dir"
+      cache_revision_file "$repo" "$head_sha" "CLAUDE.md" "$revision_dir" || true
+      cache_revision_file "$repo" "$head_sha" "AGENTS.md" "$revision_dir" || true
+
+      if [ -f "$log_file" ]; then
+        agent_path=$(log_context_path "$log_file" "Agent")
+        harness_path=$(log_context_path "$log_file" "Loading harness")
+        policy_path=$(log_context_path "$log_file" "Policy")
+      fi
+
+      agent_path=$(first_cached_revision_path "$repo" "$head_sha" "$revision_dir" \
+        "$agent_path" ".fullsend/rhdh/agents/${agent_name}.md" \
+        ".fullsend/agents/${agent_name}.md" "agents/${agent_name}.md" || true)
+      harness_path=$(first_cached_revision_path "$repo" "$head_sha" "$revision_dir" \
+        "$harness_path" ".fullsend/rhdh/harness/${agent_name}.yaml" \
+        ".fullsend/harness/${agent_name}.yaml" "harness/${agent_name}.yaml" || true)
+      policy_path=$(first_cached_revision_path "$repo" "$head_sha" "$revision_dir" \
+        "$policy_path" ".fullsend/rhdh/policies/${agent_name}.yaml" \
+        ".fullsend/policies/${agent_name}.yaml" "policies/${agent_name}.yaml" || true)
+    fi
+
+    # Write metadata sidecar (everything the convert step needs).
     jq -nc \
       --arg run_id "$run_id" \
       --arg repo "$repo" \
@@ -174,6 +278,15 @@ for repo in "${REPOS[@]}"; do
       --arg conclusion "$conclusion" \
       --arg run_url "$run_url" \
       --arg created "$created" \
+      --arg head_sha "$head_sha" \
+      --arg head_branch "$head_branch" \
+      --arg event "$event" \
+      --arg job_id "$job_id" \
+      --arg job_name "$job_name" \
+      --arg log_file "$(basename "$log_file")" \
+      --arg agent_path "$agent_path" \
+      --arg harness_path "$harness_path" \
+      --arg policy_path "$policy_path" \
       '{
         run_id: $run_id,
         repo: $repo,
@@ -181,14 +294,24 @@ for repo in "${REPOS[@]}"; do
         agent_name: $agent_name,
         conclusion: $conclusion,
         run_url: $run_url,
-        created: $created
-      }' > "${zip_file%.zip}.json"
+        created: $created,
+        head_sha: $head_sha,
+        head_branch: $head_branch,
+        event: $event,
+        job_id: $job_id,
+        job_name: $job_name,
+        workflow_log: $log_file,
+        context: {
+          agent_path: $agent_path,
+          harness_path: $harness_path,
+          policy_path: $policy_path
+        }
+      }' > "$meta_file"
 
     echo "    -> $(basename "$zip_file")"
-    total_fetched=$((total_fetched + 1))
   done
 
   echo
 done
 
-echo "Done: ${total_fetched} fetched, ${total_skipped} cached"
+echo "Done: ${total_fetched} artifact(s) fetched, ${total_logs_fetched} log(s) fetched, ${total_skipped} cached"

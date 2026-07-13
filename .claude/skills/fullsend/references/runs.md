@@ -52,11 +52,12 @@ cd agentsview && make fetch
 
 The two-phase pipeline:
 - Queries exact fullsend artifact names instead of enumerating unrelated artifacts
-- Caches ZIPs and run metadata under `artifacts/<repo>/`
+- Caches ZIPs, selected workflow job logs, and run metadata under `artifacts/<repo>/`
+- Caches agent configuration and project instructions at the workflow's exact Git revision
 - Skips already-downloaded artifacts and converted sessions (idempotent)
 - Extracts main and subagent transcripts into the native nested layout
 - Injects metadata header (`agent entity #N - run ID [conclusion · cost · duration · turns]`)
-- Reconstructs agent system prompt from scaffold sources when `FULLSEND_SCAFFOLD_DIR` is set
+- Reconstructs a Fullsend execution-context message from immutable run provenance and Claude runtime metadata
 - Organizes into `runs/<repo>/` directories
 
 Custom repos can be passed as arguments:
@@ -72,23 +73,28 @@ The default artifact names are `fullsend-code`, `fullsend-debug`, `fullsend-fix`
 `fullsend-retro`, `fullsend-review`, and `fullsend-triage`. Override the list for
 custom agents with `FULLSEND_ARTIFACT_NAMES="fullsend-code fullsend-my-agent"`.
 
-### System prompt reconstruction
+### Execution-context reconstruction
 
-When `FULLSEND_SCAFFOLD_DIR` is set, `convert-artifacts.sh` reconstructs each agent's
-effective system prompt and injects it as a synthetic user message (visible as the first
-chat message in AgentsView). The prompt is assembled from:
+`fetch-artifacts.sh` downloads the workflow job log and records the run's target
+commit, selected job, and exact Fullsend configuration paths. It caches the agent
+definition, harness, policy, `CLAUDE.md`, and `AGENTS.md` from that immutable commit
+under `artifacts/<repo>/revisions/<head-sha>/`.
 
-- `agents/<name>.md` — agent definition
-- `harness/<name>.yaml` → `skills/*/SKILL.md` — skills referenced by the harness
-- `AGENTS.md` — from target repo (via `gh api`) or scaffold fallback
-- `CLAUDE.md` — from target repo (via `gh api`); bridge pointer injected when repo has AGENTS.md but no CLAUDE.md
+`convert-artifacts.sh` combines those files with the Claude `system/init` record from
+the artifact's `output.jsonl`. The resulting synthetic first message shows:
 
-```bash
-FULLSEND_SCAFFOLD_DIR=/path/to/fullsend/internal/scaffold/fullsend-repo \
-  ./scripts/convert-artifacts.sh --force
-```
+- run, revision, Fullsend version, sandbox image, and resolved remote resources
+- Claude model/version, available tools, agents, skills, and plugins
+- the exact agent definition and project instructions from the run's revision
+- the resolved harness and sandbox policy
 
-If unset, conversion continues without prompt reconstruction.
+This is labeled **Fullsend Execution Context**, not “System Prompt”: Claude's built-in
+system instructions are not persisted. Full skill instructions remain at their natural
+position in the transcript, where Claude records them when a skill is actually loaded.
+
+Older ZIP-only caches are enriched automatically on the next `make artifacts`.
+The converter also refreshes existing sessions that do not yet contain the new
+execution-context message, so a normal `make fetch` upgrades the local cache.
 
 ### up
 
@@ -144,9 +150,9 @@ GitHub Actions artifacts (fullsend-*)       Local fullsend runs (--output-dir)
   │                                           │
   ▼  fetch-artifacts.sh                       ▼  import-local-run.sh
 agentsview/artifacts/<repo>/
-  │  cached ZIP + metadata sidecar
+  │  cached ZIP + metadata + workflow log + revision-pinned context
   ▼  convert-artifacts.sh
-  │  + prompt reconstruction                  │
+  │  + execution-context reconstruction        │
   ▼                                           ▼
 agentsview/runs/                            agentsview/runs-local/
   rhdh-plugins/*.jsonl                        local_triage/*.jsonl

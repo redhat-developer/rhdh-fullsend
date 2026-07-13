@@ -73,4 +73,3 @@ help:
 	@echo "Environment variables:"
 	@echo "  AGENTSVIEW_PORT           - Host port (default: 8081)"
 	@echo "  AGENTSVIEW_HOST           - Public hostname (default: <hostname>.local)"
-	@echo "  FULLSEND_SCAFFOLD_DIR     - Scaffold dir for prompt reconstruction"
