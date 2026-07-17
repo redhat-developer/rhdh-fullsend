@@ -15,15 +15,13 @@ skill for the RHDH team's agent infrastructure.
 
 New to fullsend? Start here:
 
-1. Read [Repo Onboarding](docs/repo-onboarding.md) to install fullsend on a repo
-2. Run `/fullsend validate` to check your harness config against the upstream scaffold
-3. Run `/fullsend custom-agents` to learn how to build or customize agents
+1. Run `/fullsend validate` to check your harness config against the upstream scaffold
+2. Run `/fullsend custom-agents` to learn how to build or customize agents
 
 ## Documentation
 
 | Doc | What it covers |
 |-----|---------------|
-| [Repo Onboarding](docs/repo-onboarding.md) | Installing fullsend on a new RHDH repo (standard and manual methods) |
 | [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
 

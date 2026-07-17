@@ -3,8 +3,6 @@
 Upgrade customized scaffold files, dispatch workflows, and the CLI binary
 to a new fullsend release. Produces one PR per repo with all changes.
 
-Full upgrade history is in `docs/fullsend-upgrade-ledger.md`.
-
 ## Usage
 
 ```
@@ -206,15 +204,6 @@ gh issue close <N> --repo redhat-developer/rhdh-agentic \
 
 If it fails, inspect with `/fullsend inspect` and check the logs for
 path mismatches, credential delivery failures, or toolchain errors.
-
-### 7. Update ledger
-
-Add a new dated section to `docs/fullsend-upgrade-ledger.md` with:
-- Scope (versions, repos)
-- Upstream changelog summary
-- Per-repo decision tables
-- PR links
-- Any new gotchas discovered
 
 ## Known gotchas
 
