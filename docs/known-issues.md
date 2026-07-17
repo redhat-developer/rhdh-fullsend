@@ -22,6 +22,7 @@ fullsend setup. Last updated: 2026-06-09.
 | Fix only triggers from bot reviews | Human `changes_requested` reviews don't trigger fix agent | Post `/fs-fix` manually | By design |
 | Retro dropped by concurrency group collision | Retro job gets cancelled by other dispatch jobs | Post `/fs-retro` manually in a quiet window | Open |
 | Custom agent stages not supported in per-repo mode | Cannot register custom `/fs-*` slash commands | Extend existing agents with custom skills instead of building standalone agents | Architectural limitation |
+| `disallowedTools: Bash(...)` strips entire Bash tool | Code/fix agents lose Bash access; waste ~$4/run spawning `claude` subagents | Remove `disallowedTools` from agent .md — per ADR-0027 it's inert in `--agent` sessions anyway. [rhdh-agentic#91](https://github.com/redhat-developer/rhdh-agentic/pull/91) | Claude Code bug ([rhdh-fullsend#23](https://github.com/redhat-developer/rhdh-fullsend/issues/23)) |
 
 ## Monorepo-specific
 

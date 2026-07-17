@@ -3,21 +3,9 @@
     "description": "Diff customized harness and env files against upstream scaffold to catch drift. Use when checking fullsend config, comparing harness files, or verifying customizations before deploying.",
     "argumentHint": "[repo-path]"
   },
-  "inspect": {
-    "description": "Investigate a fullsend agent run — pull together status, timing, agent output, and logs. Use when debugging a failed run, checking run results, or looking at a specific run by ID or issue number.",
-    "argumentHint": "<run-id | #issue>"
-  },
-  "trigger": {
-    "description": "Post a fullsend slash command on a GitHub issue or PR to start an agent run. Use when triggering /fs-code, /fs-triage, /fs-review, /fs-fix, /fs-retro, /fs-prioritize, or /fs-debug.",
-    "argumentHint": "<agent> <#issue|#PR> [--repo owner/name] [--force]"
-  },
   "debug": {
     "description": "Run sandbox environment diagnostics — checks env vars, corepack, yarn, proxy, network, filesystem, and GCP credentials. Posts results as a comment on the issue. Also documents the custom agent architecture for building new agents.",
     "argumentHint": "<#issue> [--repo owner/name]"
-  },
-  "watch": {
-    "description": "Monitor a triggered fullsend run until completion, then auto-inspect it. Use when waiting for a fullsend agent run to finish.",
-    "argumentHint": "<#issue|run-id> [--repo owner/name]"
   },
   "comment": {
     "description": "Post a comment on a GitHub issue or PR. Use when adding context, instructions, or notes before or after a fullsend agent run.",
@@ -26,5 +14,9 @@
   "label": {
     "description": "Add or remove a label on a GitHub issue or PR. Use when managing fullsend labels like triaged, ready-to-code, fullsend-no-fix, or workspace labels.",
     "argumentHint": "<#issue> <add|remove> <label> [--repo owner/name]"
+  },
+  "upgrade": {
+    "description": "Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release.",
+    "argumentHint": "[version]"
   }
 }

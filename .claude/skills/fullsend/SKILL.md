@@ -1,29 +1,24 @@
 ---
 name: fullsend
 description: |
-  Fullsend harness validation, drift checking, sandbox debugging, and fullsend setup.
+  RHDH-specific fullsend configuration — harness validation, drift checking,
+  sandbox debugging, local setup, custom agents, and upgrade management.
   Use when asked to validate fullsend config, check for drift against upstream scaffold,
   diff or compare customized harness/env files against upstream, debug a sandbox run,
-  inspect a fullsend agent run, or look at a specific run by ID or issue number.
-  Also use when asked why a fullsend run failed, what changed in the harness, or how
-  to set up env vars for the sandbox.
-  Also use when asked to trigger a fullsend agent, post a slash command on an issue,
-  watch or monitor a fullsend run, comment on an issue, or manage labels.
+  or set up env vars for the sandbox.
   Also use when asked to run sandbox diagnostics, debug the sandbox environment,
   check if yarn/corepack/openspec work, or build a custom fullsend agent.
-  Also use when asked what fullsend agents are, how they work, how to use them,
-  what agents are available, how to get started with fullsend, or how the local
-  deployment is configured.
-  Also use when asked to browse, view, or search fullsend runs in AgentsView,
-  download run transcripts, start or stop the AgentsView viewer, or check
-  agent run history.
   Also use when asked to upgrade fullsend, sync scaffold files with a new
   version, update the CLI, bump fullsend, or check what version we're on.
+  Also use when asked about local fullsend setup, RHDH GCP project config,
+  or the custom sandbox image.
 ---
 
-# /fullsend
+# /fullsend (RHDH)
 
-Tooling for managing fullsend sandbox configurations — validating customized harness/env files against the upstream scaffold, debugging sandbox issues, triggering and monitoring agent runs, and managing issue metadata.
+RHDH-specific tooling for managing fullsend sandbox configurations — validating customized harness/env files against the upstream scaffold, debugging sandbox issues, and managing the RHDH deployment.
+
+For user-facing fullsend commands (trigger, inspect, watch, help), use the upstream `/fullsend` skill from `fullsend-ai/skill`.
 
 <essential_principles>
 
@@ -34,7 +29,7 @@ Tooling for managing fullsend sandbox configurations — validating customized h
 3. **Always diff before deploying.** Never commit a customized harness without comparing it field-by-field against the current upstream version.
 4. **Docker ENV is dead at runtime.** OpenShell strips Containerfile `ENV` directives — they exist during `docker build` but not in the sandbox. All runtime env vars must go through `.env.d/` files.
 5. **Path flattening.** Fullsend overlays `.fullsend/customized/env/` → `env/`, `.fullsend/customized/harness/` → `harness/`, etc. Harness `host_files.src` paths are always relative to the **flattened** working dir (e.g., `env/foo.env`, never `customized/env/foo.env`).
-6. **Confirm before mutating.** Commands that write to GitHub (`trigger`, `comment`, `label`) must confirm with the user before acting. These are shared-state actions visible to the whole team.
+6. **Confirm before mutating.** Commands that write to GitHub (`comment`, `label`) must confirm with the user before acting. These are shared-state actions visible to the whole team.
 
 </essential_principles>
 
@@ -82,7 +77,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 |------|-------------|-------|---------|
 | Scaffold dir | `validate` | `$FULLSEND_SCAFFOLD_DIR` or `../asdlc-lab/resources/fullsend-ai/fullsend/internal/scaffold/fullsend-repo/` is a readable directory | Ask user to set `FULLSEND_SCAFFOLD_DIR` or clone `asdlc-lab` |
 | Target repo | all commands | Repo resolution (see above) | Ask user for the repo |
-| `gh` CLI | `inspect`, `trigger`, `watch`, `comment`, `label` | `gh auth status` succeeds | Ask user to install and authenticate `gh` |
+| `gh` CLI | `comment`, `label` | `gh auth status` succeeds | Ask user to install and authenticate `gh` |
 
 </setup>
 
@@ -93,16 +88,12 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | Command | Description |
 |---------|-------------|
 | `validate [repo-path]` | Diff customized harness/env files against upstream scaffold |
-| `inspect <run-id \| #issue>` | Investigate a fullsend agent run — status, timing, output, logs |
-| `trigger <agent> <#issue\|#PR> [--repo] [--force]` | Post a fullsend slash command to start an agent |
-| `watch <#issue\|run-id> [--repo]` | Monitor a triggered run until completion, then auto-inspect |
 | `debug <#issue> [--repo]` | Run sandbox diagnostics (shortcut for `trigger debug`) |
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
-| `runs [fetch\|up\|down]` | Browse fullsend runs in AgentsView — fetch transcripts, start/stop viewer |
 | `upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release |
-| `help [topic]` | Onboarding companion — agent pipeline, local deployment overview, upstream docs |
 | `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
+| `local-setup` | Guide for running fullsend agents locally on a Mac |
 
 If no arguments are given, display this table and ask which the user wants.
 
@@ -117,16 +108,12 @@ Parse the first word after `/fullsend` as the subcommand.
 | Command | Reference |
 |---------|-----------|
 | `validate` | `references/validate.md` |
-| `inspect` | `references/inspect.md` |
-| `trigger` | `references/trigger.md` |
-| `watch` | `references/watch.md` |
 | `debug` | `references/debug.md` |
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
-| `runs` | `references/runs.md` |
 | `upgrade` | `references/upgrade.md` |
-| `help` | `references/help.md` |
 | `custom-agents` | `references/custom-agents.md` |
+| `local-setup` | `references/local-setup.md` |
 
 </routing>
 
@@ -191,21 +178,6 @@ If both are empty, the agent improvises by scanning PR comments — and often fi
 /fs-fix CI fails because report.api.md is missing. Run `yarn build:api-reports` from workspaces/boost/ and commit the generated file.
 ```
 
-What the fix agent CAN read inside the sandbox:
-- `gh pr view` / `gh pr diff` — PR metadata and current diff
-- `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md` — repo conventions
-- The codebase itself (all files in the checkout)
-
-What it CANNOT see:
-- CI/GitHub Actions logs (never fetched)
-- PR inline review comments (explicitly excluded by the fix-review skill)
-- Issue comments or issue body (not part of the fix flow)
-- Previous agent transcripts
-
-No fullsend agent reads PR inline review comments (`pulls/N/comments` API). The review agent *writes* them via its post-script but never reads existing ones. For the full agent visibility matrix, see the "Agent visibility reference" table in `references/trigger.md`.
-
-When triggering `/fs-fix` for a CI failure, you must describe the failure in the comment text — that's the only way the agent learns what's wrong.
-
 ### New Backstage package CI failures cascade
 
 When a fullsend agent creates a new plugin package (e.g., `boost-common`), CI typically fails through a sequence of gates. Each must be fixed in order — fixing one reveals the next:
@@ -218,7 +190,7 @@ When a fullsend agent creates a new plugin package (e.g., `boost-common`), CI ty
 | `lint` | ESLint | `yarn lint:all --fix` |
 | `tsc` | TypeScript compilation | `yarn tsc:full` |
 
-Running `yarn chores` from the workspace root does all of these in one pass. When triggering `/fs-fix` for a new package, consider telling the agent to run `yarn chores` instead of fixing one step at a time — it avoids the cascade. But note that `yarn chores` also runs tests, which may take longer in the sandbox.
+Running `yarn chores` from the workspace root does all of these in one pass.
 
 ### Downloading agent logs
 
@@ -235,19 +207,6 @@ agent-<agent>-<issue>-<timestamp>/
   logs/
     openshell-sandbox.log    ← sandbox process logs
     openshell-gateway.log    ← container lifecycle
-```
-
-Parse assistant output:
-```bash
-python3 -c "
-import json
-with open('output.jsonl') as f:
-    for line in f:
-        obj = json.loads(line)
-        if obj.get('type') == 'assistant':
-            for c in obj['message'].get('content', []):
-                if c.get('type') == 'text': print(c['text'])
-"
 ```
 
 </troubleshooting>
