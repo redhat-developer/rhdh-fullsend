@@ -9,26 +9,23 @@ skill for the RHDH team's agent infrastructure.
 |-----------|---------|
 | **Sandbox image** | Extends upstream `fullsend-code` with corepack + yarn for JS monorepos |
 | **Deployment docs** | GCP setup, repo onboarding, sandbox networking, known issues |
-| **`/fullsend` skill** | Claude Code skill for validating configs, inspecting runs, triggering agents, and building custom agents |
-| **AgentsView** | Web viewer for browsing, searching, and analyzing fullsend agent run transcripts |
+| **`/fullsend` skill** | RHDH-specific Claude Code skill for validating configs, debugging sandboxes, and building custom agents |
 
 ## Getting started
 
 New to fullsend? Start here:
 
 1. Read [Repo Onboarding](docs/repo-onboarding.md) to install fullsend on a repo
-2. Run `/fullsend help` in Claude Code for the agent pipeline overview
-3. Run `/fullsend help custom-agents` to learn how to build or customize agents
+2. Run `/fullsend validate` to check your harness config against the upstream scaffold
+3. Run `/fullsend custom-agents` to learn how to build or customize agents
 
 ## Documentation
 
 | Doc | What it covers |
 |-----|---------------|
-| `/fullsend help setup` | Podman VM, OpenShell gateway, GCP credentials, running agents locally |
 | [Repo Onboarding](docs/repo-onboarding.md) | Installing fullsend on a new RHDH repo (standard and manual methods) |
 | [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
-| [Known Issues](docs/known-issues.md) | Active friction points, workarounds, upstream tracking |
 
 ## `/fullsend` skill
 
@@ -38,38 +35,12 @@ surfaces all of this repo's knowledge interactively. Available commands:
 | Command | What it does |
 |---------|-------------|
 | `/fullsend validate` | Diff customized harness/env files against upstream scaffold |
-| `/fullsend inspect <run-id\|#issue>` | Investigate an agent run — status, timing, output, logs |
-| `/fullsend trigger <agent> <#issue>` | Post a slash command to start an agent |
-| `/fullsend watch <#issue>` | Monitor a run until completion, then auto-inspect |
 | `/fullsend debug <#issue>` | Run sandbox diagnostics |
 | `/fullsend comment <#issue> <msg>` | Post a comment on an issue or PR |
 | `/fullsend label <#issue> <add\|remove> <label>` | Manage issue labels |
-| `/fullsend runs [fetch\|up\|down]` | Browse fullsend runs in AgentsView |
-| `/fullsend help [topic]` | Agent pipeline, deployment overview, upstream docs |
+| `/fullsend upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows |
 | `/fullsend custom-agents` | Guide for building custom standalone agents |
-
-## AgentsView
-
-The `agentsview/` directory provides a containerized setup for browsing all
-fullsend agent run transcripts in a web UI with full-text search and analytics.
-
-```bash
-cd agentsview
-make up                                    # fetch recent runs + start viewer
-make reconvert                             # rebuild runs from cached artifacts
-make local                                 # import local runs + start viewer
-AGENTSVIEW_HOST=myhost.local make up       # override advertised hostname
-make down                                  # stop
-```
-
-Sessions are grouped by repo and agent type (e.g. `rhdh-plugins_review`,
-`rhdh-agentic_code`). Local runs appear under `local_<agent>` groups.
-Issue numbers and run URLs are searchable. Remote sessions include the exact
-Fullsend agent configuration, project instructions, workflow provenance, and
-Claude runtime metadata from the run. Both fetch and import are idempotent —
-rerun to pick up new runs.
-
-Requires `gh` (authenticated), `jq`, and Podman or Docker.
+| `/fullsend local-setup` | Local agent run setup for Mac |
 
 ## Image
 

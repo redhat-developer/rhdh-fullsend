@@ -79,4 +79,4 @@ What custom agents **cannot** do today:
 
 **Custom-only deployments** (no built-in agents): Skip `fullsend admin install` and the `fullsend.yaml` shim. Create standalone workflows for each custom agent. You keep the sandbox infrastructure (image, OpenShell, GCP auth) but own the dispatch plumbing. Trade-off: you lose unified event routing (auto-trigger on PR open, label-based dispatch) and must trigger everything via slash commands or `workflow_dispatch`.
 
-See also: `known-issues.md` → "Custom agent stages not supported in per-repo mode".
+Custom agent stages are not supported in per-repo mode — this is an architectural limitation of the built-in dispatch chain.
