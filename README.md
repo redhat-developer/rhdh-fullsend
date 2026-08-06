@@ -9,6 +9,7 @@ skill for the RHDH team's agent infrastructure.
 |-----------|---------|
 | **Sandbox image** | Extends upstream `fullsend-code` with corepack + yarn for JS monorepos |
 | **Deployment docs** | GCP setup, repo onboarding, sandbox networking, known issues |
+| **Blueprints** | Shared env/policy/scripts and staged custom agents (e.g. `/fs-grillme`) |
 | **`/fullsend` skill** | RHDH-specific Claude Code skill for validating configs, debugging sandboxes, and building custom agents |
 
 ## Getting started
@@ -37,7 +38,8 @@ surfaces all of this repo's knowledge interactively. Available commands:
 | `/fullsend comment <#issue> <msg>` | Post a comment on an issue or PR |
 | `/fullsend label <#issue> <add\|remove> <label>` | Manage issue labels |
 | `/fullsend upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows |
-| `/fullsend custom-agents` | Guide for building custom standalone agents |
+| `/fullsend custom-agents` | Guide for building custom agents (BYOA + blueprints) |
+| `/fullsend grillme` | `/fs-grillme` grilling agent blueprint (staged here) |
 | `/fullsend local-setup` | Local agent run setup for Mac |
 
 ## Image

@@ -12,6 +12,17 @@ propagate to each consuming repo.
 | `env/rhdh-toolchain.env` | yes | - | yes |
 | `env/yarn-proxy.env` | yes | - | yes |
 | `policies/code.yaml` | yes | - | yes |
+| `agents/grillme/` | — (intended first install) | - | - |
+
+## Agent blueprints
+
+Full agent packages (prompt, harness, skills, pre/post scripts) live under
+`agents/<name>/`. Stage them here, then copy into a consuming repo's
+`.fullsend/` tree and register in `config.yaml`.
+
+| Agent | Slash command | Purpose | Install guide |
+|-------|---------------|---------|---------------|
+| [`agents/grillme/`](agents/grillme/) | `/fs-grillme` | One-question-per-turn grilling on PRs (code, docs, OpenSpec, …) | [agents/grillme/README.md](agents/grillme/README.md) |
 
 ## How to sync
 
@@ -28,6 +39,9 @@ If the diff is non-empty, copy the blueprint into the repo:
 cp blueprints/scripts/pre-fix-rebase.sh \
   ../rhdh-plugins/.fullsend/customized/scripts/pre-fix-rebase.sh
 ```
+
+For agent packages, follow the package README (path layout differs from flat
+script/env blueprints).
 
 ## Rules
 

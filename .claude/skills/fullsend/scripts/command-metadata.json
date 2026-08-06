@@ -18,5 +18,13 @@
   "upgrade": {
     "description": "Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release.",
     "argumentHint": "[version]"
+  },
+  "custom-agents": {
+    "description": "Guide for building custom fullsend agents — BYOA with CEL triggers, blueprints under blueprints/agents/, and the legacy standalone-workflow pattern.",
+    "argumentHint": ""
+  },
+  "grillme": {
+    "description": "/fs-grillme grilling agent blueprint — general PR decision grilling (code, docs, OpenSpec, …); staging status, package layout, and how to propagate into rhdh-plugins.",
+    "argumentHint": ""
   }
 }

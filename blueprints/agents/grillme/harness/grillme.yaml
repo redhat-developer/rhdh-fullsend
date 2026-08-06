@@ -1,0 +1,67 @@
+# grillme — general PR grilling agent (BYOA + CEL slash command).
+#
+# Blueprint paths use rhdh/ prefix to avoid scaffold overlay collisions
+# (fullsend layers upstream defaults into top-level dirs on every run).
+#
+# Trigger: comment /fs-grillme on a non-fork PR.
+# Each run is one grill turn; the post-script posts the agent's final text.
+
+agent: rhdh/agents/grillme.md
+image: ghcr.io/fullsend-ai/fullsend-code:latest
+policy: policies/base.yaml
+readonly_repo: true
+
+role: review
+# Slug defaults to the org's review App via mint. Override if your org
+# uses a different slug (e.g. fullsend-ai-review for RHDH repos).
+slug: fullsend-ai-review
+
+model: opus
+
+providers:
+  - vertex-ai
+  - github
+
+skills:
+  - rhdh/skills/grilling
+
+host_files:
+  - src: env/gcp-vertex.env
+    dest: /sandbox/workspace/.env.d/gcp-vertex.env
+    expand: true
+  - src: rhdh/env/grillme.env
+    dest: /sandbox/workspace/.env.d/grillme.env
+    expand: true
+  - src: ${GOOGLE_APPLICATION_CREDENTIALS}
+    dest: /tmp/.gcp-credentials.json
+  - src: ${GCP_OIDC_TOKEN_FILE}
+    dest: /sandbox/workspace/.gcp-oidc-token
+    optional: true
+
+pre_script: rhdh/scripts/pre-grillme.sh
+post_script: rhdh/scripts/post-grillme.sh
+
+timeout_minutes: 15
+
+trigger: >
+  event.transition.kind == "comment_added"
+    && has(event.transition.comment.command)
+    && event.transition.comment.command == "/fs-grillme"
+    && event.state.change_proposal != null
+    && !event.state.change_proposal.is_fork
+
+forge:
+  github:
+    pre_script: rhdh/scripts/pre-grillme.sh
+    post_script: rhdh/scripts/post-grillme.sh
+    env:
+      runner:
+        GH_TOKEN: ${GH_TOKEN}
+        REVIEW_TOKEN: ${REVIEW_TOKEN}
+        ISSUE_NUMBER: ${ISSUE_NUMBER}
+        PR_NUMBER: ${PR_NUMBER}
+        REPO_FULL_NAME: ${REPO_FULL_NAME}
+        GITHUB_ISSUE_URL: ${GITHUB_ISSUE_URL}
+        HUMAN_INSTRUCTION: ${HUMAN_INSTRUCTION}
+        TRIGGER_SOURCE: ${TRIGGER_SOURCE}
+        RUN_URL: ${RUN_URL}

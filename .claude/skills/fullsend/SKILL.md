@@ -12,6 +12,8 @@ description: |
   version, update the CLI, bump fullsend, or check what version we're on.
   Also use when asked about local fullsend setup, RHDH GCP project config,
   or the custom sandbox image.
+  Also use when asked about grillme, /fs-grillme, PR grilling, or the
+  grillme agent blueprint.
 ---
 
 # /fullsend (RHDH)
@@ -92,7 +94,8 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 | `upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release |
-| `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
+| `custom-agents` | Guide for building custom agents (BYOA + CEL, blueprints, legacy standalone) |
+| `grillme` | `/fs-grillme` grilling agent blueprint — staging status and install path |
 | `local-setup` | Guide for running fullsend agents locally on a Mac |
 
 If no arguments are given, display this table and ask which the user wants.
@@ -113,6 +116,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `label` | `references/label.md` |
 | `upgrade` | `references/upgrade.md` |
 | `custom-agents` | `references/custom-agents.md` |
+| `grillme` | `references/grillme.md` |
 | `local-setup` | `references/local-setup.md` |
 
 </routing>
