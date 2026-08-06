@@ -38,7 +38,23 @@ diff, docs, OpenSpec artifacts when present), look it up rather than asking.
 The *decisions* are the engineer's — put each one to them and wait for their
 answer on the next turn.
 
-## What to probe
+## How to probe
+
+### Domain precision
+
+When the engineer uses vague or overloaded terms, propose a precise canonical
+term. ("You say 'account' — do you mean the Customer or the User? Those are
+different things.") When domain relationships are discussed, invent concrete
+edge-case scenarios that force precision about boundaries. When claims are made
+about how something works, cross-reference against the actual code or artifacts
+and surface contradictions.
+
+If the repo has a `CONTEXT.md` (glossary / ubiquitous language), challenge new
+terms against it. If a decision should be captured somewhere (an ADR, a design
+doc, an OpenSpec artifact), say *where* it belongs in the closing summary —
+but do not write the file yourself.
+
+### What to probe
 
 Adapt to whatever the PR actually changes. Prefer high-leverage decision
 branches over trivia. Typical dimensions (skip what does not apply):
@@ -63,8 +79,10 @@ explicitly confirms shared understanding), post a short closing summary:
 
 - Decisions reached
 - Remaining gaps (if any)
+- Where to capture each decision (e.g. "record in `design.md`", "warrants an
+  ADR in `openspec/changes/foo/adr/`", "update `CONTEXT.md` with the canonical
+  term for X") — only when the decision is durable enough to merit it
 - Suggested next step (human edit, `/fs-fix`, or ready for review)
 
-Do not act on the change (no edits or commits) unless the engineer explicitly
-asks in a later turn — and even then prefer leaving mutations to the human or
-`/fs-fix`.
+Do not write files yourself. The engineer or `/fs-fix` applies captured
+decisions to the appropriate artifacts.
