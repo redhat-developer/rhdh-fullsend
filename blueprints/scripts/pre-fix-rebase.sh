@@ -40,10 +40,14 @@ fi
 NEW_HEAD="$(git rev-parse HEAD)"
 echo "Rebase succeeded: ${CURRENT_HEAD:0:7} → ${NEW_HEAD:0:7}"
 
-# 3. Force-push the rebased branch (token is fresh here)
+# 3. Force-push the rebased branch (token is fresh here).
+# SECURITY: PUSH_TOKEN must NOT be persisted into ${REPO_DIR}/.git/config —
+# REPO_DIR is subsequently mounted into the agent sandbox, whose security
+# model requires "no direct push access" (help.md; SKILL.md runner_env table).
+# Use a one-shot push URL so the token never touches on-disk git config.
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-git remote set-url origin \
-  "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO_FULL_NAME}.git"
 echo "Force-pushing rebased branch ${BRANCH}..."
-git push --force-with-lease origin "${BRANCH}" 2>&1
+git -c credential.helper= push --force-with-lease \
+  "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO_FULL_NAME}.git" \
+  "HEAD:refs/heads/${BRANCH}" 2>&1
 echo "Rebase push complete."
