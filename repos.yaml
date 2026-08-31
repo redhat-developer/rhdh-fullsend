@@ -1,0 +1,24 @@
+# Fleet manifest for RHDH fullsend per-repo installations.
+# https://fullsend.sh/docs/guides/getting-started/repo-management
+#
+# Roll out a new fullsend version (creates PRs, never pushes to default):
+#   1. Bump github.fullsend_ref below
+#   2. fullsend repos install -f repos.yaml
+#   3. Review and merge the scaffold PRs in each target repo
+#
+# Converge a single repo:
+#   fullsend repos install -f repos.yaml redhat-developer/rhdh-agentic
+version: 1
+defaults:
+  runtime: claude
+  allowed_remote_resources:
+    - https://raw.githubusercontent.com/fullsend-ai/fullsend/
+    - https://raw.githubusercontent.com/fullsend-ai/agents/
+github:
+  mint_mode: private
+  mint_url: https://fullsend-mint-gljhbkcloq-uc.a.run.app
+  fullsend_ref: v0.37.0
+  repos:
+    - name: redhat-developer/rhdh-agentic
+    - name: redhat-developer/rhdh-plugins
+    - name: redhat-developer/rhdh-plugin-export-overlays

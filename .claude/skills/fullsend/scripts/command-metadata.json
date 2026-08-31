@@ -16,7 +16,7 @@
     "argumentHint": "<#issue> <add|remove> <label> [--repo owner/name]"
   },
   "upgrade": {
-    "description": "Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release.",
+    "description": "Upgrade CLI, bump repos.yaml, and converge target repos via PRs.",
     "argumentHint": "[version]"
   }
 }

@@ -7,6 +7,7 @@ skill for the RHDH team's agent infrastructure.
 
 | Component | Purpose |
 |-----------|---------|
+| **`repos.yaml`** | Fleet manifest for per-repo fullsend installs (version pin, mint, repo list) |
 | **Sandbox image** | Extends upstream `fullsend-code` with corepack + yarn for JS monorepos |
 | **Deployment docs** | GCP setup, repo onboarding, sandbox networking, known issues |
 | **`/fullsend` skill** | RHDH-specific Claude Code skill for validating configs, debugging sandboxes, and building custom agents |
@@ -22,6 +23,7 @@ New to fullsend? Start here:
 
 | Doc | What it covers |
 |-----|---------------|
+| [`repos.yaml`](repos.yaml) | Fleet manifest — bump `github.fullsend_ref` then `fullsend repos install -f repos.yaml` |
 | [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
 
@@ -74,7 +76,7 @@ PRs build but don't push (validation only).
 Reference in your fullsend harness config:
 
 ```yaml
-# .fullsend/customized/harness/code.yaml
+# .fullsend/rhdh/harness/code.yaml
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 ```
 

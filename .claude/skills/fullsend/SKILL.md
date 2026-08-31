@@ -24,12 +24,12 @@ For user-facing fullsend commands (trigger, inspect, watch, help), use the upstr
 
 ## Essential Principles
 
-1. **Customized files are full replacements.** When a repo places a file in `.fullsend/customized/harness/`, fullsend uses it *instead of* the scaffold version — not merged, not overlaid. Any field omitted from the customized file is silently dropped.
-2. **Upstream scaffold is source of truth.** The canonical harness and env definitions live in the scaffold repo. Customizations must track upstream changes or they drift.
-3. **Always diff before deploying.** Never commit a customized harness without comparing it field-by-field against the current upstream version.
+1. **`base:` composition, not `customized/` overlay.** ADR 0064 removed `.fullsend/customized/`. Repo-owned agents live under `.fullsend/rhdh/` and register in `.fullsend/config.yaml`. Harnesses inherit upstream via `base:` and override only the fields that differ.
+2. **`repos.yaml` is the fleet source of truth.** Version pins, mint URL, and the managed repo list live at the root of this repo. Roll a new fullsend version by bumping `github.fullsend_ref` and running `fullsend repos install -f repos.yaml` (PRs only, never `--direct`).
+3. **Always diff before deploying.** Thin `base:` harnesses still need a field-by-field check against the upstream file they inherit.
 4. **Docker ENV is dead at runtime.** OpenShell strips Containerfile `ENV` directives — they exist during `docker build` but not in the sandbox. All runtime env vars must go through `.env.d/` files.
-5. **Path flattening.** Fullsend overlays `.fullsend/customized/env/` → `env/`, `.fullsend/customized/harness/` → `harness/`, etc. Harness `host_files.src` paths are always relative to the **flattened** working dir (e.g., `env/foo.env`, never `customized/env/foo.env`).
-6. **Confirm before mutating.** Commands that write to GitHub (`comment`, `label`) must confirm with the user before acting. These are shared-state actions visible to the whole team.
+5. **Harness paths are relative to `.fullsend/`.** `host_files.src` values such as `rhdh/env/yarn-proxy.env` resolve from the per-repo `.fullsend/` root, not from a flattened `customized/` overlay.
+6. **Confirm before mutating.** Commands that write to GitHub (`comment`, `label`) must confirm with the user before acting. These are shared-state actions visible to the whole team. Scaffold upgrades go through PRs.
 
 </essential_principles>
 
@@ -91,7 +91,7 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `debug <#issue> [--repo]` | Run sandbox diagnostics (shortcut for `trigger debug`) |
 | `comment <#issue> <message> [--repo]` | Post a comment on an issue or PR |
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
-| `upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows to a new fullsend release |
+| `upgrade [version]` | Upgrade CLI, bump `repos.yaml`, and converge target repos via PRs |
 | `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
 | `local-setup` | Guide for running fullsend agents locally on a Mac |
 

@@ -1,7 +1,7 @@
 # upgrade
 
-Upgrade customized scaffold files, dispatch workflows, and the CLI binary
-to a new fullsend release. Produces one PR per repo with all changes.
+Upgrade the fullsend CLI, then roll the scaffold workflow ref through
+`repos.yaml`. Every forge change lands as a PR — never `--direct`.
 
 ## Usage
 
@@ -9,41 +9,35 @@ to a new fullsend release. Produces one PR per repo with all changes.
 /fullsend upgrade [target-version]
 ```
 
-- `target-version`: e.g. `v0.18.0`. Default: latest release on fullsend-ai/fullsend.
+- `target-version`: e.g. `v0.37.0`. Default: latest release on fullsend-ai/fullsend.
 
 ## Prerequisites
 
 | Gate | Check | If fail |
 |------|-------|---------|
-| Scaffold dir | `$FULLSEND_SCAFFOLD_DIR` or `../asdlc-lab/resources/fullsend-ai/fullsend/` | Ask user to clone `asdlc-lab` |
+| `repos.yaml` | this repo's fleet manifest | Stop — the file is required |
 | `gh` CLI | `gh auth status` | Ask user to authenticate |
-| `fullsend` CLI | `fullsend --version` | Suggest downloading from GitHub releases |
+| `fullsend` CLI | `fullsend --version` | Download from GitHub releases |
+
+Official path: [Rolling out a new fullsend version](https://fullsend.sh/docs/guides/getting-started/repo-management#rolling-out-a-new-fullsend-version).
 
 ## Procedure
 
 ### 1. Determine versions
 
 ```bash
-# Current CLI version
 fullsend --version
-
-# Fetch latest tags from upstream
-cd <fullsend-repo> && git fetch --tags
-
-# Latest upstream release
 gh release list --repo fullsend-ai/fullsend --limit 3
-
-# Current version from our customized files (read forked-from stamp)
-head -5 <target-repo>/.fullsend/customized/harness/code.yaml
+grep fullsend_ref repos.yaml
 ```
 
-Show the user: current CLI version, current forked-from version (from stamps),
-and target version. Confirm before proceeding.
+Show the user: current CLI version, current `github.fullsend_ref`, and target
+version. Confirm before proceeding.
 
 ### 2. Upgrade CLI binary
 
 ```bash
-VERSION=<target>
+VERSION=<target>   # without the leading v, e.g. 0.37.0
 gh release download "v${VERSION}" --repo fullsend-ai/fullsend \
   --pattern "fullsend_${VERSION}_darwin_arm64.tar.gz" -D /tmp
 
@@ -55,127 +49,55 @@ chmod +x ~/.local/bin/fullsend
 fullsend --version
 ```
 
-### 3. Generate upstream changelog
+### 3. Bump the fleet manifest
 
-Diff the scaffold between the old and new versions to understand what changed:
+In `repos.yaml`, set `github.fullsend_ref` to the target tag (e.g. `v0.37.0`).
+Open a PR in **this** repo (`rhdh-fullsend`). Do not push to `main`.
 
-```bash
-OLD=v0.17.0  # from forked-from stamps
-NEW=v0.18.0  # target
+Keep `github.mint_mode: private` and the self-hosted `mint_url`. Do not let
+setup/install fall through to `https://mint.fullsend.sh`.
 
-cd <fullsend-repo>
-git log --oneline $OLD..$NEW --no-merges | head -30
+### 4. Converge target repos (PRs only)
 
-# Scaffold-specific changes
-git diff $OLD..$NEW -- internal/scaffold/fullsend-repo/harness/
-git diff $OLD..$NEW -- internal/scaffold/fullsend-repo/agents/
-git diff $OLD..$NEW -- internal/scaffold/fullsend-repo/scripts/
-git diff $OLD..$NEW -- internal/scaffold/fullsend-repo/policies/
-git diff $OLD..$NEW -- internal/scaffold/fullsend-repo/templates/shim-per-repo.yaml
-```
-
-Present a summary of changes to the user. Classify each as:
-- **Must adopt**: path changes, new required fields, security fixes
-- **Should adopt**: new optional fields, improved defaults
-- **Informational**: script changes (inherited automatically if not customized)
-
-### 4. Per-repo upgrade
-
-For each repo with `.fullsend/customized/`:
-
-#### 4a. Sync fork
+Dry-run first, then install **without** `--direct`:
 
 ```bash
-git fetch upstream
-git checkout main
-git merge upstream/main --ff-only
-git push origin main
+fullsend repos install -f repos.yaml --dry-run
+fullsend repos install -f repos.yaml redhat-developer/rhdh-agentic
 ```
 
-If ff-merge fails, the fork has diverged. Investigate before proceeding.
+Omit the repo filter to converge every entry in the manifest.
 
-#### 4b. Diff all customized files
+`repos install` on an already-installed repo:
+
+- Refreshes `.github/workflows/fullsend.yaml` and thin callers (`prioritize.yml`)
+- Upgrades the `reusable-dispatch.yml` pin (`@<sha> # vX.Y.Z` stays SHA-pinned)
+- Reconciles mint URL / region variables from the manifest
+- **Does not rewrite** `.fullsend/config.yaml` (custom `agents:` stay)
+- **Does not delete** leftover `.fullsend/customized/` trees — remove those
+  in the same scaffold PR if they are empty `.gitkeep` placeholders (ADR 0064)
+
+Review each scaffold PR before merge. Do not use `--direct`.
+
+### 5. Rebuild sandbox image if needed
+
+Check whether the upstream base image changed:
 
 ```bash
-UPSTREAM="<fullsend-repo>/internal/scaffold/fullsend-repo"
-OURS="<target-repo>/.fullsend/customized"
-
-for f in $(find "$OURS" -type f ! -name ".gitkeep" | sort); do
-  rel="${f#$OURS/}"
-  upstream_file="$UPSTREAM/$rel"
-  echo "--- $rel ---"
-  if [ -f "$upstream_file" ]; then
-    diff -u "$upstream_file" "$f" | head -40
-  else
-    echo "(custom — no upstream equivalent)"
-  fi
-done
+git -C /Users/mhild/src/fullsend-ai/fullsend diff $OLD..$NEW -- images/code/Containerfile
 ```
 
-For each file, record a decision:
-- **ADOPT**: apply upstream change to our customized file
-- **SKIP**: upstream changed but our customization is intentional — no action
-- **STAMP**: no changes needed — just update the version stamp
-
-Present the decision table to the user before making changes.
-
-#### 4c. Apply changes
-
-Create a single branch per repo. Include ALL changes in one PR:
-- Scaffold file updates (harness, agents, policies)
-- Dispatch workflow sync (`.github/workflows/fullsend.yaml`)
-- Version stamp updates on every customized file
-
-**Important constraints:**
-- Workflow files (`.github/workflows/`) need human push — the fs-code agent
-  token lacks `workflows` permission. Always include these in the manual PR.
-- Agent prompt `.md` files may reference harness paths (e.g.,
-  `/sandbox/workspace/prior-review.txt`). When harness `host_files[].dest`
-  paths change, grep agent prompts for the old paths.
-
-#### 4d. Update version stamps
-
-Every customized file gets updated stamps:
-```yaml
-# forked-from: fullsend v0.18.0 scaffold
-# last-synced: 2026-07-15
-```
-
-For custom files with no upstream equivalent:
-```yaml
-# forked-from: custom (no upstream equivalent)
-# last-synced: 2026-07-15
-```
-
-### 5. Rebuild sandbox image
-
-Check if the upstream base image versions changed:
-```bash
-git diff $OLD..$NEW -- images/code/Containerfile
-git diff $OLD..$NEW -- images/sandbox/Containerfile
-```
-
-Our Containerfile extends `ghcr.io/fullsend-ai/fullsend-code:latest`.
-Tool upgrades (Go, gopls, tirith) come from the base image automatically.
-
-Only change our Containerfile if:
-- The pinned yarn version changed in the target repo's `package.json`
-- We need to add/remove tools (e.g., openspec)
-
-To rebuild:
-```bash
-podman build -t rhdh-fullsend-code:local \
-  -f images/code/Containerfile images/code/
-```
+Our Containerfile extends `ghcr.io/fullsend-ai/fullsend-code:latest`. Tool
+upgrades come from the base image automatically. Only change our Containerfile
+if the pinned yarn version changed or we need to add/remove tools.
 
 CI auto-builds on push to main when `images/code/**` changes. If no
-Containerfile changes are needed, trigger manually via `workflow_dispatch`
-on the sandbox-images workflow to pick up the new base.
+Containerfile changes are needed, trigger `workflow_dispatch` on the
+sandbox-images workflow to pick up the new base.
 
 ### 6. Smoke test
 
-After PRs are merged, create a test issue on rhdh-agentic to verify
-the agent pipeline works with the upgraded scaffold and image.
+After the rhdh-agentic scaffold PR is merged, create a test issue:
 
 ```bash
 gh issue create --repo redhat-developer/rhdh-agentic \
@@ -185,37 +107,17 @@ Expected: triage agent picks up this issue, classifies it, posts status comment.
 Close this issue if triage succeeds."
 ```
 
-The `issues: opened` event auto-triggers triage. Watch the run:
-```bash
-/fullsend watch rhdh-agentic issue <N>
-```
-
-What to check:
-- Route job succeeds (dispatch workflow changes work)
-- Triage sandbox starts (image pulls correctly)
-- No credential or path errors in logs
-- Status comment posted on the issue
-
-If triage succeeds, close the issue:
-```bash
-gh issue close <N> --repo redhat-developer/rhdh-agentic \
-  --comment "Smoke test passed — triage ran successfully on <version>."
-```
-
-If it fails, inspect with `/fullsend inspect` and check the logs for
-path mismatches, credential delivery failures, or toolchain errors.
+Watch the run. If triage succeeds, close the issue.
 
 ## Known gotchas
 
-1. **Stale local checkout**: always `git fetch --tags` before diffing.
-2. **Silent path breakage**: mount path changes silently fail — files mount
-   but the agent can't find them at the old path.
-3. **Agent prompts reference harness paths**: grep `.md` files for old paths
-   when `host_files[].dest` changes.
-4. **Concurrency group cancellation**: `/fs-code` runs can be cancelled by
-   triage bot comments. Re-trigger after triage completes.
-5. **Agent skips branch creation**: for trivial changes, add explicit branch
-   instructions in the `/fs-code` comment.
-6. **Fork sync before branching**: stale forks cause phantom diffs in PRs.
-7. **Workflow files need `workflows` token scope**: the fs-code agent cannot
-   push `.github/workflows/` changes. Include in the manual PR.
+1. **Self-hosted mint.** Manifest `mint_mode` must stay `private` with the GCP
+   mint URL. `github setup` without `--mint-url` writes `mint.fullsend.sh`.
+2. **Config-targeting flags rewrite `config.yaml`.** `--runtime`, `--agents`,
+   `--mint-url`, `--inference-*` re-serialize the overlay (comments lost,
+   agents kept). Prefer `repos install` over `github setup` for upgrades.
+3. **Empty `customized/` dirs are leftover.** ADR 0064 removed the overlay;
+   custom agents live under `.fullsend/rhdh/` with `base:` composition.
+4. **Workflow files need `workflows` token scope.** The fs-code agent cannot
+   push `.github/workflows/` — that is why upgrades go through `repos install` PRs.
+5. **Do not `--direct`.** All scaffold and manifest changes land as PRs.
