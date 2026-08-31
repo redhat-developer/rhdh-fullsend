@@ -215,7 +215,7 @@ agent-<agent>-<issue>-<timestamp>/
 
 ## Sandbox Image
 
-The custom image (`ghcr.io/redhat-developer/rhdh-fullsend-code:latest`) is built from `images/code/Containerfile` in rhdh-fullsend. Auto-builds on push to main when `images/code/**` changes.
+The custom image (`ghcr.io/redhat-developer/rhdh-fullsend-code:latest`) is built from `images/code/Containerfile` in rhdh-fullsend. Auto-builds on push to `main` when `images/code/**` or `repos.yaml` changes (a `fullsend_ref` bump rebuilds so `:latest` picks up the new upstream `fullsend-code` base). `workflow_dispatch` remains for an out-of-band rebuild.
 
 ### What's in it (on top of upstream fullsend-code)
 

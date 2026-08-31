@@ -8,9 +8,13 @@ on:
       - main
     paths:
       - "images/code/**"
+      # Bumping github.fullsend_ref rebuilds so :latest picks up the new
+      # upstream fullsend-code base (FROM ghcr.io/fullsend-ai/fullsend-code:latest).
+      - "repos.yaml"
   pull_request:
     paths:
       - "images/code/**"
+      - "repos.yaml"
   workflow_dispatch:
 
 # Cancel in-progress runs for the same branch/PR.

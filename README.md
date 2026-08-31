@@ -23,7 +23,7 @@ New to fullsend? Start here:
 
 | Doc | What it covers |
 |-----|---------------|
-| [`repos.yaml`](repos.yaml) | Fleet manifest — bump `github.fullsend_ref` then `fullsend repos install -f repos.yaml` |
+| [`repos.yaml`](repos.yaml) | Fleet manifest — bump `github.fullsend_ref` then `fullsend repos install -f repos.yaml`. Merging a pin bump also rebuilds `rhdh-fullsend-code`. |
 | [GCP Infrastructure](docs/gcp-infrastructure.md) | GCP project, WIF providers, IAM, service accounts |
 | [Sandbox Networking](docs/sandbox-networking.md) | DNS inside OpenShell sandboxes — why it fails, workarounds |
 
@@ -69,7 +69,7 @@ ghcr.io/fullsend-ai/fullsend-code:latest   (upstream)
 | `X.Y` | Tag push `v*` | Floating minor for auto-patch |
 | `<sha>` | Every non-PR build | Debugging and rollback |
 
-PRs build but don't push (validation only).
+PRs that touch `images/code/**` or `repos.yaml` build but don't push (validation only). Merging a `fullsend_ref` bump to `main` rebuilds and pushes `:latest`.
 
 ## Usage
 

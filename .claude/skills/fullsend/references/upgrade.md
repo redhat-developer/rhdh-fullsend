@@ -91,9 +91,11 @@ Our Containerfile extends `ghcr.io/fullsend-ai/fullsend-code:latest`. Tool
 upgrades come from the base image automatically. Only change our Containerfile
 if the pinned yarn version changed or we need to add/remove tools.
 
-CI auto-builds on push to main when `images/code/**` changes. If no
-Containerfile changes are needed, trigger `workflow_dispatch` on the
-sandbox-images workflow to pick up the new base.
+CI auto-builds on push to `main` when `images/code/**` **or** `repos.yaml`
+changes. Bumping `github.fullsend_ref` is therefore enough to pick up the new
+upstream `fullsend-code` base — no Containerfile change and no manual
+`workflow_dispatch` required. Keep `workflow_dispatch` for an out-of-band
+rebuild (e.g. upstream published a new `:latest` without a ref bump).
 
 ### 6. Smoke test
 
