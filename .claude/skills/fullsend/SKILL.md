@@ -230,6 +230,6 @@ The image must pin the same yarn version the target repos use. Check:
 grep packageManager <repo>/package.json
 ```
 
-If the repo pins `yarn@4.12.0`, the Containerfile must use `corepack prepare yarn@4.12.0 --activate`. A mismatch forces a runtime re-download through the proxy.
+If a target repo pins `yarn@4.17.1` (rhdh-plugins, overlays) or `yarn@4.12.0` (rhdh-agentic), the Containerfile must `corepack prepare` those versions. A mismatch forces a runtime re-download through the proxy.
 
 </sandbox_image>
