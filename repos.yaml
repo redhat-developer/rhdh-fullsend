@@ -17,7 +17,7 @@ defaults:
 github:
   mint_mode: private
   mint_url: https://fullsend-mint-gljhbkcloq-uc.a.run.app
-  fullsend_ref: v0.37.0
+  fullsend_ref: v0.41.0
   repos:
     - name: redhat-developer/rhdh-agentic
     - name: redhat-developer/rhdh-plugins
