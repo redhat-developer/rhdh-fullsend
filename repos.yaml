@@ -16,7 +16,7 @@ defaults:
     - https://raw.githubusercontent.com/fullsend-ai/agents/
 github:
   mint_url: https://mint.fullsend.sh
-  fullsend_ref: v0.43.0
+  fullsend_ref: v0.45.0
   repos:
     - name: redhat-developer/rhdh-agentic
     - name: redhat-developer/rhdh-cli
