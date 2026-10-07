@@ -74,6 +74,9 @@ Omit the repo filter to converge every entry in the manifest.
 - Upgrades the `reusable-dispatch.yml` pin (`@<sha> # vX.Y.Z` stays SHA-pinned)
 - Reconciles mint URL / region variables from the manifest
 - **Does not rewrite** `.fullsend/config.yaml` (custom `agents:` stay)
+- **Does not update** custom `base:` harness URLs under `.fullsend/`; pin
+  those to the matching `fullsend-ai/agents` release and verify their SHA-256
+  hashes in each affected repo before running the new workflow
 - **Does not delete** leftover `.fullsend/customized/` trees — remove those
   in the same scaffold PR if they are empty `.gitkeep` placeholders (ADR 0064)
 

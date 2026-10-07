@@ -14,7 +14,7 @@ skill for the RHDH team's agent infrastructure.
 
 ## Fleet status
 
-**Fullsend version:** v0.43.0 | **Mint:** `mint.fullsend.sh` (public) | **GCP project:** `rhdh-sidekick-167988` | **WIF pool:** `fullsend-inference`
+**Fullsend version:** v0.45.0 | **Mint:** `mint.fullsend.sh` (public) | **GCP project:** `rhdh-sidekick-167988` | **WIF pool:** `fullsend-inference`
 
 ### Managed repos (`repos.yaml`)
 
