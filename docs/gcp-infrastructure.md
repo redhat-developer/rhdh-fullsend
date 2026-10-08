@@ -44,6 +44,7 @@ Once a partner model is enabled, it is available to all principals with
 
 | Model | Model ID | Status | Verified |
 |-------|----------|--------|----------|
+| Claude Sonnet 5.5 | `claude-sonnet-5-5` | Enabled | 2026-10-08 (Model Garden console) |
 | Claude Opus 4.6 | `claude-opus-4-6` | Enabled | 2026-09-10 (triage agent, issue #143) |
 | Claude Sonnet 4.6 | `claude-sonnet-4-6` | Enabled | 2026-09-10 (Model Garden console) |
 | Claude Haiku 4.5 | `claude-haiku-4-5` | Enabled | 2026-09-10 (Model Garden console) |
