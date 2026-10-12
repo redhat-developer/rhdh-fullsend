@@ -116,33 +116,47 @@ Watch the run. If triage succeeds, close the issue.
 
 ### 6a. Re-apply shim customizations
 
-`repos install` convergence currently only bumps `uses:` SHA pins in
-`.github/workflows/fullsend.yaml` — it does NOT regenerate the full shim
-from the template. This means shim customizations (event type edits,
-`if:` condition changes) survive `repos install`. However, template
-improvements (like the v0.43.0 `/fs-` comment filter) must be applied
-manually. A future fullsend version may change convergence behavior to
-do full template rewrites — do not rely on this.
+**`repos install` rewrites the shim from the template — customizations do
+NOT survive.** Verified on v0.43.0 against `redhat-developer/rhdh-skills`
+(rhdh-skills#134): convergence replaced `.github/workflows/fullsend.yaml`
+wholesale, restoring every auto-trigger event (`issues`,
+`pull_request_review`, and the full `pull_request_target` type list) and
+overwriting the customized header comment.
+
+This means **every `repos install` silently re-enables auto-triggers on
+every managed repo.** Treat step 6a as mandatory after any convergence
+run, not as an occasional check. The upside: template improvements
+(new `if:` guards, ADR-driven `stop-fix` changes) arrive automatically —
+only the event trimming has to be re-applied.
+
+Earlier versions only bumped `uses:` SHA pins and left customizations in
+place. Do not rely on that behavior.
 
 After the scaffold PR is created, check each repo for shim customizations
 that need re-applying. Current fleet customizations:
 
 | Repo | Customization | What to edit |
 |------|---------------|--------------|
-| All 9 managed repos | All auto-triggers disabled | Remove `issues` event, remove `closed` from `pull_request_target.types`, remove `pull_request_review` event. Keep only `issue_comment` and `pull_request_target: [labeled, unlabeled]` |
-| redhat-developer/rhdh-plugins | Above + workspace path filter | Additionally keep `paths:` (boost, scorecard, ai-integrations) on `pull_request_target` |
+| All 10 managed repos (baseline) | All auto-triggers disabled | Keep only `issue_comment: [created]` and `pull_request_target: [labeled, unlabeled]`. Remove the `issues` and `pull_request_review` blocks and the extra `pull_request_target` types |
+| redhat-developer/rhdh-plugins | Baseline + workspace path filter | Additionally restore `paths:` (boost, scorecard, ai-integrations) on `pull_request_target` |
+| redhat-developer/rhdh-plugin-export-overlays | Baseline, with one trigger kept | Restore `issues: [labeled]` — E2E triage and the coder run on labels (#3823). This is the one managed repo that is not fully auto-trigger-free; dropping the block breaks both |
 
 To re-apply after a scaffold PR lands:
 
 ```bash
 # In the scaffold PR branch, edit the shim:
-# pull_request_target.types: [closed, labeled, unlabeled]
-# (remove: opened, synchronize, ready_for_review)
+# pull_request_target.types: [labeled, unlabeled]
+# (remove: opened, synchronize, ready_for_review, closed)
+# remove the issues and pull_request_review event blocks entirely
+# drop the pull_request_review clause from the dispatch if:
 ```
 
 Update the header comment to flag the customization:
 ```yaml
-# Based on fullsend scaffold; customized to disable review auto-trigger.
+# Based on fullsend scaffold; customized to disable all agent auto-triggers.
+# Only label-based triggers and /fs-* slash commands remain active.
+# `fullsend repos install` regenerates this file and restores the
+# auto-trigger events — re-apply after every upgrade.
 ```
 
 **Why no config-based approach:** Built-in agents (triage, code, review, fix,
@@ -163,7 +177,7 @@ existing per-PR opt-out is `fullsend-no-fix` (label-based, hardcoded).
 4. **Workflow files need `workflows` token scope.** The fs-code agent cannot
    push `.github/workflows/` — that is why upgrades go through `repos install` PRs.
 5. **Do not `--direct`.** All scaffold and manifest changes land as PRs.
-6. **Shim customizations need monitoring.** See step 6a — current convergence
-   only bumps SHA pins (customizations survive), but this may change. Keep a
-   checklist of per-repo edits and verify after each upgrade. Also manually
-   apply upstream template improvements (e.g. new `if:` guards).
+6. **Convergence wipes shim customizations.** See step 6a — `repos install`
+   rewrites `.github/workflows/fullsend.yaml` from the template, re-enabling
+   every auto-trigger. Re-apply the event trimming on the scaffold PR branch
+   before merging, on every repo, every time.

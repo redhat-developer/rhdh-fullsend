@@ -22,6 +22,7 @@ github:
     - name: redhat-developer/rhdh-cli
     - name: redhat-developer/rhdh-plugins
     - name: redhat-developer/rhdh-plugin-export-overlays
+    - name: redhat-developer/rhdh-skills
     - name: rhdh-parasol/rhdh
     - name: rhdh-parasol/rhdh-agentic
     - name: rhdh-parasol/rhdh-operator
