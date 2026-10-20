@@ -1,0 +1,80 @@
+name: Fullsend Fleet Status - redhat-developer
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  FLEET_OWNER: redhat-developer
+
+jobs:
+  verify:
+    name: Verify redhat-developer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Read organization manifest
+        id: fleet
+        run: node scripts/fleet-status.ts prepare --owner "$FLEET_OWNER"
+
+      - name: Install pinned fullsend CLI
+        env:
+          FULLSEND_VERSION: ${{ steps.fleet.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archive="fullsend_${FULLSEND_VERSION#v}_linux_amd64.tar.gz"
+          download_dir="${RUNNER_TEMP}/fullsend-download"
+          install_dir="${RUNNER_TEMP}/fullsend-bin"
+          mkdir -p "$download_dir" "$install_dir"
+          gh release download "$FULLSEND_VERSION" --repo fullsend-ai/fullsend \
+            --pattern "$archive" --pattern checksums.txt --dir "$download_dir"
+          cd "$download_dir"
+          awk -v archive="$archive" '$2 == archive { print; found++ } END { if (found != 1) exit 1 }' \
+            checksums.txt > selected-checksum.txt
+          sha256sum --check selected-checksum.txt
+          tar -xzf "$archive" -C "$install_dir" fullsend
+          chmod +x "$install_dir/fullsend"
+          "$install_dir/fullsend" --version
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Create fleet App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.FULLSEND_FLEET_APP_ID }}
+          private-key: ${{ secrets.FULLSEND_FLEET_APP_PRIVATE_KEY }}
+          owner: ${{ env.FLEET_OWNER }}
+          repositories: ${{ steps.fleet.outputs.repositories }}
+
+      - name: Check fleet status
+        id: status
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: node scripts/fleet-status.ts --owner "$FLEET_OWNER"
+
+      - name: Upload fleet report
+        if: ${{ always() && steps.status.outcome != 'skipped' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fullsend-fleet-status-${{ env.FLEET_OWNER }}
+          path: fleet-report/
+          if-no-files-found: warn
+          retention-days: 14

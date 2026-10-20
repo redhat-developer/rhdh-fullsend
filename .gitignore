@@ -1,4 +1,6 @@
 skills-lock.json
+node_modules/
+fleet-report/
 .agents/
 .claude/skills/*
 !.claude/skills/fullsend/
