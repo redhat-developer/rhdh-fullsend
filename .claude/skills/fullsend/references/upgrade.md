@@ -118,8 +118,10 @@ skopeo inspect --override-os linux --override-arch amd64 \
 CI builds on push to `main` when `images/code/**` or `repos.yaml` changes and
 moves `:latest` + `:dev` for **every** repo using `rhdh-fullsend-code:latest`.
 To roll out to one repo first, push a semver tag (e.g. `v0.57.1`) on the branch
-commit: tag builds publish `:<X.Y.Z>`, `:<X.Y>`, `:<sha>` and `:dev`, never
-`:latest`, and ignore `paths:`. Point the pilot repo's harness `image:` lines at
+commit: tag builds publish `:<X.Y.Z>`, `:<X.Y>`, `:<sha>` and `:dev`, and ignore
+`paths:`. They only leave `:latest` alone with `flavor: latest=false` in the
+metadata step; before that, metadata-action's `latest=auto` tagged semver builds
+`:latest` too (it moved `:latest` on the first `v0.57.1` tag, 2026-11-24). Point the pilot repo's harness `image:` lines at
 `:<X.Y.Z>`, then merge to `main` when the fleet moves.
 
 ### 6. Smoke test
