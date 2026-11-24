@@ -54,6 +54,17 @@ fullsend --version
 In `repos.yaml`, set `github.fullsend_ref` to the target tag (e.g. `v0.37.0`).
 Open a PR in **this** repo (`rhdh-fullsend`). Do not push to `main`.
 
+Since v0.46 the manifest needs `defaults.inference.auth` (we use `vertex-wif`), and
+newer CLIs reject top-level `defaults.runtime` / `defaults.allowed_remote_resources`:
+nest them under `defaults.config`. Every operator must run a CLI at least as new as
+`fullsend_ref` before any `fullsend repos` command (v0.57 moved the managed config
+schema to v3).
+
+Run `repos install` from a **writable checkout of this repo**, not a copy. Since v0.57,
+install (or the first `--rotate-trace-signing-key` run) records `config.trace_context`
+in `repos.yaml`; commit those edits. A later install from a copy without them stops,
+and CLIs up to v0.55 refuse a manifest that has them.
+
 The fleet uses public mint (`https://mint.fullsend.sh`). Verify `mint_url`
 in `repos.yaml` stays set to that after the upgrade.
 
@@ -73,7 +84,12 @@ Omit the repo filter to converge every entry in the manifest.
 - Refreshes `.github/workflows/fullsend.yaml` and thin callers (`prioritize.yml`)
 - Upgrades the `reusable-dispatch.yml` pin (`@<sha> # vX.Y.Z` stays SHA-pinned)
 - Reconciles mint URL / region variables from the manifest
-- **Does not rewrite** `.fullsend/config.yaml` (custom `agents:` stay)
+- **Manages `.fullsend/config.yaml`** since v0.47 (adoption of hand-written files;
+  check the dry run). Its preflight reads the repo's **live** config from the default
+  branch and refuses keys the target version dropped. For v0.57: remove
+  `create_issues` in a PR merged before install (v0.45 accepts its absence), and add
+  `tracker.github.allowed_targets` only with the workflow bump, because v0.45 parses
+  `tracker` as a string and fails on the mapping
 - **Does not update** custom `base:` harness URLs under `.fullsend/`; pin
   those to the matching `fullsend-ai/agents` release and verify their SHA-256
   hashes in each affected repo before running the new workflow
@@ -90,15 +106,21 @@ Check whether the upstream base image changed:
 git -C /Users/mhild/src/fullsend-ai/fullsend diff $OLD..$NEW -- images/code/Containerfile
 ```
 
-Our Containerfile extends `ghcr.io/fullsend-ai/fullsend-code:latest`. Tool
-upgrades come from the base image automatically. Only change our Containerfile
-if the pinned yarn version changed or we need to add/remove tools.
+Our Containerfile pins `BASE_IMAGE` to the released upstream image matching
+`github.fullsend_ref` (tag + multi-arch index digest). Upstream `:latest` tracks
+fullsend `main` and is **not** the released image, so bump the pin with the ref:
 
-CI auto-builds on push to `main` when `images/code/**` **or** `repos.yaml`
-changes. Bumping `github.fullsend_ref` is therefore enough to pick up the new
-upstream `fullsend-code` base — no Containerfile change and no manual
-`workflow_dispatch` required. Keep `workflow_dispatch` for an out-of-band
-rebuild (e.g. upstream published a new `:latest` without a ref bump).
+```bash
+skopeo inspect --override-os linux --override-arch amd64 \
+  --format '{{.Digest}}' docker://ghcr.io/fullsend-ai/fullsend-code:<X.Y.Z>
+```
+
+CI builds on push to `main` when `images/code/**` or `repos.yaml` changes and
+moves `:latest` + `:dev` for **every** repo using `rhdh-fullsend-code:latest`.
+To roll out to one repo first, push a semver tag (e.g. `v0.57.1`) on the branch
+commit: tag builds publish `:<X.Y.Z>`, `:<X.Y>`, `:<sha>` and `:dev`, never
+`:latest`, and ignore `paths:`. Point the pilot repo's harness `image:` lines at
+`:<X.Y.Z>`, then merge to `main` when the fleet moves.
 
 ### 6. Smoke test
 
@@ -137,7 +159,7 @@ that need re-applying. Current fleet customizations:
 
 | Repo | Customization | What to edit |
 |------|---------------|--------------|
-| All 10 managed repos (baseline) | All auto-triggers disabled | Keep only `issue_comment: [created]` and `pull_request_target: [labeled, unlabeled]`. Remove the `issues` and `pull_request_review` blocks and the extra `pull_request_target` types |
+| All 10 managed repos (baseline) | All auto-triggers disabled | Keep only `issue_comment: [created]` and the PR event with `[labeled, unlabeled]` (`pull_request_target` up to v0.56, **`pull_request` from v0.57**). Remove the `issues` and `pull_request_review` blocks and the extra PR event types |
 | redhat-developer/rhdh-plugins | Baseline + workspace path filter | Additionally restore `paths:` (boost, scorecard, ai-integrations) on `pull_request_target` |
 | redhat-developer/rhdh-plugin-export-overlays | Baseline, with one trigger kept | Restore `issues: [labeled]` — E2E triage and the coder run on labels (#3823). This is the one managed repo that is not fully auto-trigger-free; dropping the block breaks both |
 
@@ -145,7 +167,7 @@ To re-apply after a scaffold PR lands:
 
 ```bash
 # In the scaffold PR branch, edit the shim:
-# pull_request_target.types: [labeled, unlabeled]
+# pull_request.types: [labeled, unlabeled]   (pull_request_target before v0.57)
 # (remove: opened, synchronize, ready_for_review, closed)
 # remove the issues and pull_request_review event blocks entirely
 # drop the pull_request_review clause from the dispatch if:

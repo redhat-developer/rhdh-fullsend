@@ -10,13 +10,16 @@
 #   fullsend repos install -f repos.yaml redhat-developer/rhdh-agentic
 version: 1
 defaults:
-  runtime: claude
-  allowed_remote_resources:
-    - https://raw.githubusercontent.com/fullsend-ai/fullsend/
-    - https://raw.githubusercontent.com/fullsend-ai/agents/
+  inference:
+    auth: vertex-wif
+  config:
+    runtime: claude
+    allowed_remote_resources:
+      - https://raw.githubusercontent.com/fullsend-ai/fullsend/
+      - https://raw.githubusercontent.com/fullsend-ai/agents/
 github:
   mint_url: https://mint.fullsend.sh
-  fullsend_ref: v0.45.0
+  fullsend_ref: v0.57.1
   repos:
     - name: redhat-developer/rhdh-agentic
     - name: redhat-developer/rhdh-cli
