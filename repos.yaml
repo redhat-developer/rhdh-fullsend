@@ -31,3 +31,26 @@ github:
     - name: rhdh-parasol/rhdh-operator
     - name: rhdh-parasol/rhdh-plugins
     - name: rhdh-parasol/rhdh-plugin-export-overlays
+      # Adopted from the repo's hand-written .fullsend/config.yaml (ADR-0122).
+      config:
+        agents:
+          - name: code
+            source: rhdh/harness/code.yaml
+          - name: fix
+            source: rhdh/harness/fix.yaml
+          - name: review
+            source: rhdh/harness/review.yaml
+          - name: e2e-triage
+            source: rhdh/harness/e2e-triage.yaml
+          - name: ci-diagnose
+            source: rhdh/harness/ci-diagnose.yaml
+        roles: [triage, coder, review, fix, retro, prioritize]
+        tracker:
+          github:
+            allowed_targets:
+              repos:
+                - rhdh-parasol/rhdh-plugin-export-overlays
+                - fullsend-ai/fullsend
+        models:
+          aliases:
+            opus: claude-opus-4-6
