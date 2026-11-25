@@ -37,24 +37,9 @@ github:
           - name: code
             source: rhdh/harness/code.yaml
           - name: fix
-            harness:
-              agent: rhdh/agents/fix.md
-              image: ghcr.io/redhat-developer/rhdh-fullsend-code:0.57.1
-              policy: rhdh/policies/code.yaml
-              host_files:
-                - src: rhdh/env/rhdh-toolchain.env
-                  dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
-                - src: rhdh/env/yarn-proxy.env
-                  dest: /sandbox/workspace/.env.d/yarn-proxy.env
-              skills:
-                - skills/e2e-failure-analysis
+            source: rhdh/harness/fix.yaml
           - name: review
-            subagents:
-              default: claude-opus-4-6
-            harness:
-              image: ghcr.io/redhat-developer/rhdh-fullsend-code:0.57.1
-              skills:
-                - skills/e2e-failure-analysis
+            source: rhdh/harness/review.yaml
           - name: e2e-triage
             source: rhdh/harness/e2e-triage.yaml
           - name: ci-diagnose
@@ -68,4 +53,4 @@ github:
                 - fullsend-ai/fullsend
         models:
           aliases:
-            opus: claude-opus-4-6
+            opus: claude-opus-5-5
