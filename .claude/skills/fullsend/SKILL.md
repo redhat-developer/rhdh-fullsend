@@ -210,6 +210,10 @@ Running `yarn chores` from the workspace root does all of these in one pass.
 
 ### Auto-trigger configuration
 
+This is the fleet's setup as of the v0.57.1 rollout. Each repo's
+`.github/workflows/fullsend.yaml` is the source of truth; read it before
+relying on the table.
+
 All auto-triggers are **disabled fleet-wide**. The shim listens only to
 `issue_comment` (for `/fs-*` commands) and the PR event with
 `[labeled, unlabeled]` (`pull_request` from v0.57, `pull_request_target`
@@ -271,6 +275,6 @@ The image must pin the same yarn version the target repos use. Check:
 grep packageManager <repo>/package.json
 ```
 
-If a target repo pins `yarn@4.17.1` (rhdh-plugins, overlays) or `yarn@4.12.0` (rhdh-agentic), the Containerfile must `corepack prepare` those versions. A mismatch forces a runtime re-download through the proxy.
+The Containerfile must `corepack prepare` every yarn version a target repo pins. Compare each repo's `packageManager` with the `corepack prepare` lines in `images/code/Containerfile`; repos bump yarn on their own schedule. A mismatch forces a runtime re-download through the proxy.
 
 </sandbox_image>

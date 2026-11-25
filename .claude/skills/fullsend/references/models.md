@@ -16,10 +16,24 @@ to move to a new model safely.
 
 | Layer | Where | What it pins |
 |-------|-------|--------------|
-| Fleet manifest | `repos.yaml` → `github.repos[].config.models.aliases` (`opus`, `sonnet`, `haiku`) | Every `model: opus\|sonnet\|haiku` the repo's agents ask for. The upstream base harnesses (code, fix, review, triage, retro, prioritize) all say `model: opus` |
+| Fleet manifest | `repos.yaml` → `github.repos[].config.models.aliases` (`opus`, `sonnet`, `haiku`) | Every `model: opus\|sonnet\|haiku` the repo's agents ask for. At v0.57.1 every upstream base harness asked for `opus`; check the release you pin (below) |
 | Fleet manifest | `repos.yaml` → `agents[].subagents` on the review agent (e.g. `default: inherit`) | Turns on persona resolution: fullsend runs each upstream review persona's alias (`opus`/`sonnet`/`haiku`) through `models.aliases` and writes the model id into the persona file before the sandbox starts |
 | Target repo | `.fullsend/<org>/harness/*.yaml` `model:` | Custom agents with no upstream base. Use the alias (`model: opus`) so the manifest stays the one source |
 | Target repo | Agent / skill text such as "pass `model: \"claude-opus-5-5\"`" | Ad-hoc sub-agents the agent spawns itself (not upstream personas). `models.aliases` cannot reach these; they carry the id literally |
+
+Which aliases the upstream harnesses and review personas ask for can change
+with any agents release. Check at the agents commit your harnesses pin:
+
+```bash
+SHA=<agents commit from the harness base: pins>
+for a in code fix review triage retro prioritize; do
+  echo "$a: $(curl -fsSL https://raw.githubusercontent.com/fullsend-ai/agents/$SHA/harness/$a.yaml | grep -m1 '^model:')"
+done
+# review personas (path at v0.57.1; search the tree for the persona names if it moved)
+for p in $(gh api "repos/fullsend-ai/agents/contents/skills/pr-review/sub-agents?ref=$SHA" --jq '.[].name'); do
+  echo "$p: $(curl -fsSL https://raw.githubusercontent.com/fullsend-ai/agents/$SHA/skills/pr-review/sub-agents/$p | grep -m1 '^model:')"
+done
+```
 
 `models.aliases` reaches sub-agents only when the agent has a live
 `subagents:` entry. Without one, Claude Code resolves persona aliases with its
@@ -50,6 +64,9 @@ So:
 | Alias remapped with `models.aliases` | The pinned id | **No fallback: the run fails** |
 | Explicit model id | That id | **No fallback: the run fails** |
 
+The defaults and fallbacks above are v0.57.1's. Check them for the version
+you run in `internal/runtime/model_defaults.go` at that tag.
+
 A pinned id never moves on its own. A new fullsend release can change the
 built-in defaults, but `models.aliases` overrides them. The fleet moves only
 when someone changes `repos.yaml` and runs install.
@@ -62,10 +79,11 @@ not count on it.
 
 ### 1. Check enablement first
 
-All WIF-enabled repos in both orgs (including `rhdh-parasol`) use one GCP
-project, `rhdh-sidekick-167988`. A model must be enabled there before any
-repo pins it. Check the "Enabled partner models" table in
-`docs/gcp-infrastructure.md`. If it is missing, run `/fullsend enable-model <id>`
+A model must be enabled in the GCP project the repos run inference in before
+any repo pins it. `docs/gcp-infrastructure.md` names that project (at the
+v0.57.1 rollout, one project served every WIF repo in both orgs, so a parasol
+pass proved enablement for production too; check that is still true) and
+has the "Enabled partner models" table. If it is missing, run `/fullsend enable-model <id>`
 first. Do this for every alias you pin, not only `opus`: review personas also
 ask for `sonnet` and `haiku`.
 
@@ -94,9 +112,8 @@ In a PR to this repo, set `models.aliases` for the pilot entry (the
 ### 4. Roll out
 
 Update the production entries in `repos.yaml`, then install one repo at a
-time with a repo filter. Since v0.57, installs write `config.trace_context`
-back to `repos.yaml`, so run them from a writable checkout of this repo and
-commit the write-backs. Re-apply the shim customizations (`upgrade.md`,
+time with a repo filter, from a writable checkout of this repo. Commit
+anything install writes back to `repos.yaml` (see `upgrade.md` 5d). Re-apply the shim customizations (`upgrade.md`,
 "Shim customizations") on every scaffold PR.
 
 ### 5. Update the literal ids
@@ -116,9 +133,11 @@ Update the per-agent model table in `docs/gcp-infrastructure.md`.
    every agent on it fails until `repos.yaml` changes and install runs.
 3. **Review personas are tiered.** Upstream assigns `opus`, `sonnet` and
    `haiku`. Pinning only `opus` leaves the rest on Claude Code's own table.
-4. **`subagents.default` applies only to personas that name no model.** All
-   upstream personas name one, so `default: inherit` turns resolution on
-   without changing any persona's model.
+4. **`subagents.default` applies only to personas that name no model.** At
+   v0.57.1 every upstream persona named one, so `default: inherit` turned
+   resolution on without changing any persona's model. Re-check the personas
+   after an agents bump (command above): a persona without a model would get
+   the parent's.
 5. **A live `subagents:` entry limits the agent to persona sub-agents.** With it
    on, the review agent starts only the registered personas. On parasol it
    skipped an ad-hoc "label-conventions" sub-agent ("sub-agents may only be

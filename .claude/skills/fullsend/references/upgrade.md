@@ -45,7 +45,7 @@ before acting on a production repo.
 
 | Gate | Check | If fail |
 |------|-------|---------|
-| Writable checkout of this repo | `git -C <rhdh-fullsend> status` | Clone it. Install writes back to `repos.yaml` (v0.57+), so a copy loses those edits |
+| Writable checkout of this repo | `git -C <rhdh-fullsend> status` | Clone it. Install can write back to `repos.yaml` (5d), so a copy loses those edits |
 | `gh` CLI | `gh auth status` | Ask the user to authenticate |
 | `fullsend` CLI ≥ target | `fullsend --version` | Step 2 |
 | Upstream source (optional, for reading code) | a `fullsend-ai/fullsend` checkout with tags | `gh repo clone fullsend-ai/fullsend` |
@@ -109,9 +109,14 @@ gh release download "v${VERSION}" --repo fullsend-ai/fullsend \
 tar xzf /tmp/fullsend_${VERSION}_*.tar.gz -C ~/.local/bin/ fullsend && fullsend --version
 ```
 
+Asset names can change between releases; check them with
+`gh release view v${VERSION} --repo fullsend-ai/fullsend` if the download
+finds nothing.
+
 Every operator needs a CLI at least as new as `fullsend_ref` before running
-any `fullsend repos` command. Older CLIs refuse newer manifests: v0.57 moved
-the managed config schema to v3, and CLIs up to v0.55 reject `trace_context`.
+any `fullsend repos` command. Older CLIs refuse newer manifests (for example,
+v0.57 moved the managed config schema to v3, and CLIs up to v0.55 reject
+`trace_context`). The release notes say when this applies.
 
 If `fullsend lint` or install hangs at 0% CPU on a child `git fetch`, a stale
 credential is sending git to the VS Code askpass prompt. Run it with:
@@ -134,7 +139,7 @@ push to `main` that touches `repos.yaml` or `images/code/**` rebuilds
   `defaults.inference.auth` (we use `vertex-wif`), and newer CLIs reject
   top-level `defaults.runtime` and `defaults.allowed_remote_resources`, which
   move under `defaults.config`.
-- Keep `mint_url: https://mint.fullsend.sh`.
+- Keep `mint_url` as it is unless the release notes change it.
 - Check that the new CLI parses it: `fullsend repos install -f repos.yaml --dry-run <one-repo>`.
   A schema error appears before any repo work.
 
@@ -157,9 +162,9 @@ images/code/Containerfile` in the fullsend checkout), and whether the Claude
 Code version the image pins (`CLAUDE_CODE_VERSION`) moved.
 
 Build without touching `:latest`: push a semver tag (e.g. `v0.57.1`) on the
-branch commit. Tag builds publish `:<X.Y.Z>`, `:<X.Y>`, `:<sha>` and `:dev`
-and ignore `paths:`. They leave `:latest` alone only because the metadata
-step sets `flavor: latest=false`; `docker/metadata-action`'s default
+branch commit. Which tags a tag build publishes is set by the metadata step
+in `.github/workflows/sandbox-images.yml`; read it before tagging. Check that
+the step sets `flavor: latest=false`: `docker/metadata-action`'s default
 `latest=auto` tags semver pushes as `latest` (that moved `:latest` on the
 first v0.57.1 tag). After the tag build, confirm `:latest` did not move:
 
@@ -175,9 +180,9 @@ Pilot repos point their harness `image:` lines at `:<X.Y.Z>` until step 7.
 ### 5. Each repo: pilot mirror first, then production
 
 Do the `rhdh-parasol/*` mirror of a repo first, then the production repo.
-Finish one repo before installing the next. Installs write
-`config.trace_context` back to `repos.yaml` (v0.57+), so parallel installs
-from different checkouts conflict.
+Run installs one at a time, from one writable checkout, and always with a
+repo filter. An install can write back to `repos.yaml` (5d), and a later
+install from a checkout without that edit stops.
 
 #### Repos without a pilot mirror
 
@@ -185,8 +190,9 @@ A repo with no `rhdh-parasol` entry has nowhere to rehearse. Fix that first
 instead of upgrading production blind:
 
 - **The mirror repo exists but is not in `repos.yaml`:** onboard it with
-  `/fullsend onboard rhdh-parasol/<repo>`. The org's WIF binding already covers
-  every `rhdh-parasol` repo. Its `.fullsend/` should match production's,
+  `/fullsend onboard rhdh-parasol/<repo>`. Check in
+  `docs/gcp-infrastructure.md` whether the org's WIF binding already covers
+  it. Its `.fullsend/` should match production's,
   including repo-owned harnesses under `.fullsend/rhdh/`. Sync it from
   production in a mirror PR, and re-point repo references to the mirror.
 - **No mirror repo:** create it in the `rhdh-parasol` org (a human with org
@@ -229,8 +235,11 @@ with "exists without the managed-configuration ownership marker". To adopt it:
    `inference.project` or `inference.wif_provider` left behind is silently
    dropped by the next install, and every agent in that repo then fails Vertex
    auth. The dry run's loss diff lists what would go; read it line by line.
-3. In the pre-PR, put the marker line at the top of the file
-   (`# This file is managed by 'fullsend repos': repos-config-v1`).
+3. In the pre-PR, put the marker at the top of the file. Copy it exactly
+   from the target version, because it carries a schema version: it is the
+   `managedConfigMarker` constant (`git grep -n managedConfigMarker vX.Y.Z --
+   internal/` in a fullsend checkout). In v0.57.1 it is two comment lines
+   starting `# This file is managed by 'fullsend repos': repos-config-v1`.
 
 Do not just delete the file. The old version still needs it for custom agents
 until the scaffold PR merges.
@@ -253,17 +262,29 @@ diff, and the list of what it would write. Fix and repeat until it is clean.
 
 ```bash
 fullsend repos install -f repos.yaml <org>/<repo>
-git diff repos.yaml   # commit trace_context write-backs to the manifest branch
+git diff repos.yaml   # commit anything install wrote back to the manifest branch
 ```
 
-Then check the repo's variables. v0.57 reads `FULLSEND_REVIEW_CLIENT_ID` to
-find its earlier review comment. Without it, runs log "Prior review comment …
-wrong app — discarding" and each re-review starts over:
+Write-backs depend on the version and on the repo's state. In v0.57.1, a
+first install or a `--rotate-trace-signing-key` run records
+`config.trace_context`. Upgrading an already-installed repo wrote nothing on
+parasol. Whatever `git diff` shows, commit it before the next install.
+
+Then set `FULLSEND_REVIEW_CLIENT_ID` if it is missing. The review workflow
+uses it to recognise its own earlier review comment. Without it, runs log
+"Prior review comment … wrong app — discarding", every re-review starts from
+scratch, and an unchanged-diff push is reviewed again. Install writes it only
+when it first sets up a repo's variables. Up to at least v0.57.1 it does not
+add it to an already-installed repo, so expect to set it once per repo:
 
 ```bash
-gh variable list --repo <org>/<repo>
-gh api /apps/fullsend-ai-review --jq .client_id   # expected value
+gh variable list --repo <org>/<repo> | grep FULLSEND_REVIEW_CLIENT_ID
+id=$(gh api /apps/<app_set>-review --jq .client_id)   # app_set: repos.yaml github.app_set, default fullsend-ai
+gh variable set FULLSEND_REVIEW_CLIENT_ID --repo <org>/<repo> --body "$id"
 ```
+
+The value is the review GitHub App's public client ID, not a secret. Once
+present, later installs keep it correct.
 
 #### 5e. Finish the scaffold PR immediately
 
@@ -277,7 +298,10 @@ on itself.
    shim from the template every time.
 2. **Bump repo-owned harness `base:` pins** to the `fullsend-ai/agents`
    commit that matches the release, with the `#sha256=` of each file.
-   Install does not touch them. Keep fix/review as repo harness files with
+   Install does not touch them. The agents repo tags its releases with the
+   same version: `gh api repos/fullsend-ai/agents/git/ref/tags/vX.Y.Z --jq
+   .object.sha` (if the tag is missing, check the release notes for the
+   agents commit). Keep fix/review as repo harness files with
    pinned bases, not inline `harness:` blocks in `repos.yaml`. Inline blocks
    fall back to the unpinned agents tag at run time, and move policy out of
    the repo's CODEOWNERS.
@@ -303,7 +327,8 @@ on itself.
 
 Install generates more than we use, such as Jira, OpenAI and gateway secrets
 in the shim. Unset secrets pass as empty strings. Leave them, so the next
-install's diff stays small. There is no install option to omit them.
+install's diff stays small. Up to v0.57.1 there was no install option to
+omit them; check `fullsend repos install --help` on newer versions.
 
 #### 5f. Test (mirror before merge, production right after)
 
@@ -326,7 +351,9 @@ Run the agents the repo uses, in parallel:
 Pick a fresh issue for `/fs-code`. On an issue that already has an agent PR,
 the agent correctly does nothing, which tests nothing.
 
-Check each run's log and artifacts:
+Check each run's log and artifacts. The log lines below are the v0.57.1
+wording; if a grep finds nothing on a newer version, read the log around the
+agent start instead of assuming the setting was ignored:
 
 ```bash
 gh run view <id> --repo <r> --log | grep -E 'remapped|Agent: claude|subagents:|##\[error\]|Runtime:'
@@ -355,10 +382,12 @@ When every repo is on the new version:
 
 ## Shim customizations (re-apply after every install)
 
-Built-in agents use hardcoded stage routing in `reusable-dispatch.yml`. CEL
-triggers only work for custom agents, and `roles:` only controls whether an
-agent may run at all. The shim's `on:` block is the only switch for
-auto-triggers, and install resets it.
+The shim's `on:` block decides which GitHub events reach fullsend at all, and
+install resets it to the template every time. What config can control on
+top of that changes between releases. For example, v0.57.1 added a per-agent
+`trigger:` (CEL) that can gate some built-in agents, but not code or fix,
+whose routing lives in `reusable-dispatch.yml`. Before dropping a shim edit
+in favour of config, check the target version's docs and dispatch workflow.
 
 | Repo | Keep |
 |------|------|
@@ -377,9 +406,11 @@ Also keep:
   # Upstream: https://github.com/fullsend-ai/fullsend/blob/main/internal/scaffold/fullsend-repo/templates/shim-per-repo.yaml
   ```
 
-The installer writes an `# Upstream:` link that 404s. Use the template path
-above. Diff against the template, not the old shim, to see what the new
-version changed.
+In v0.57.1 the installer writes an `# Upstream:` link that 404s. Check that
+the template path above still exists at the target tag (`git ls-tree vX.Y.Z
+internal/scaffold/fullsend-repo/templates/` in a fullsend checkout) and fix
+the link if it moved. Diff against the template, not the old shim, to see
+what the new version changed.
 
 ## Known gotchas
 
@@ -392,12 +423,12 @@ version changed.
 | `:latest` moved on a tag build | metadata-action `latest=auto` | `flavor: latest=false`; restore with `skopeo copy` |
 | A review starts on the scaffold PR | `pull_request` runs the PR's own shim | push the 5e customizations immediately |
 | Code post-script: "uncommitted changes — not a no-op" | dangling symlinks dropped in the sandbox copy, or real leftover edits | `find . -type l ! -exec test -e {} \; -print` |
-| "Prior review comment … wrong app — discarding" | `FULLSEND_REVIEW_CLIENT_ID` repo var missing | set it from `gh api /apps/fullsend-ai-review` |
+| "Prior review comment … wrong app — discarding" | `FULLSEND_REVIEW_CLIENT_ID` repo var missing; install does not add it to existing repos | set it once per repo (5d) |
 | Lint: "installing named symlink: rename … .fullsend-cache" | stale cache copied from elsewhere | `rm -rf .fullsend/.fullsend-cache`, re-run |
 | `fullsend lint` hangs, VS Code sign-in prompt | askpass fallback | step 2 credential helper |
 | `skopeo inspect` "no image found … darwin" | multi-arch image on a Mac | `--override-os linux --override-arch amd64` or `--raw` |
 | `sed -i ''` errors | GNU sed on PATH | `sed -i`, or Python |
-| Later install stops on missing `trace_context` | install ran from a copy | always install from the writable checkout and commit write-backs |
+| Later install stops on missing `trace_context` | an earlier install wrote it back from another copy | install from the one writable checkout and commit write-backs |
 
 Two more:
 - **`/tmp` scratch dirs vanish after about a week.** Rebuild with
