@@ -100,13 +100,18 @@ repo variables or secrets. Each one becomes a step below.
 
 ### 2. CLI
 
+Install the target release's binary the way you normally install CLIs, and
+keep the old one until the rollout is done (it is the rollback). For
+example, replacing the binary already on your `PATH`:
+
 ```bash
 VERSION=<target>   # without the leading v
-OLD=$(fullsend --version | awk '{print $3}')
-cp ~/.local/bin/fullsend ~/.local/bin/fullsend.${OLD}.bak
-gh release download "v${VERSION}" --repo fullsend-ai/fullsend \
-  --pattern "fullsend_${VERSION}_$(uname -s | tr A-Z a-z)_$(uname -m | sed s/x86_64/amd64/).tar.gz" -D /tmp
-tar xzf /tmp/fullsend_${VERSION}_*.tar.gz -C ~/.local/bin/ fullsend && fullsend --version
+BIN=$(command -v fullsend); OLD=$(fullsend --version | awk '{print $3}')
+cp "$BIN" "$BIN.$OLD.bak"
+TMP=$(mktemp -d)
+gh release download "v${VERSION}" --repo fullsend-ai/fullsend -D "$TMP" \
+  --pattern "fullsend_${VERSION}_$(uname -s | tr A-Z a-z)_$(uname -m | sed s/x86_64/amd64/).tar.gz"
+tar xzf "$TMP"/fullsend_*.tar.gz -C "$(dirname "$BIN")" fullsend && fullsend --version
 ```
 
 Asset names can change between releases; check them with
@@ -118,15 +123,10 @@ any `fullsend repos` command. Older CLIs refuse newer manifests (for example,
 v0.57 moved the managed config schema to v3, and CLIs up to v0.55 reject
 `trace_context`). The release notes say when this applies.
 
-If `fullsend lint` or install hangs at 0% CPU on a child `git fetch`, a stale
-credential is sending git to the VS Code askpass prompt. Run it with:
-
-```bash
-env -u GIT_ASKPASS -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_NODE GIT_TERMINAL_PROMPT=0 \
-  git -c credential.helper= -c 'credential.helper=!gh auth git-credential' <cmd>
-```
-
-The same helper fixes `git push` failing with "could not read Username".
+`fullsend lint` and install run `git fetch` against GitHub. If one of them
+hangs, git is probably waiting for a credential prompt. Check that git can
+reach GitHub without prompting:
+`GIT_TERMINAL_PROMPT=0 git ls-remote https://github.com/fullsend-ai/agents HEAD`.
 
 ### 3. Manifest PR (in this repo)
 
@@ -155,7 +155,7 @@ skopeo inspect --override-os linux --override-arch amd64 \
 skopeo inspect --raw docker://ghcr.io/fullsend-ai/fullsend-code:<X.Y.Z> | shasum -a 256   # index digest
 ```
 
-On a Mac, plain `skopeo inspect` fails with "no image found … darwin"; the
+On macOS, plain `skopeo inspect` fails with "no image found … darwin"; the
 override flags or `--raw` avoid that. Also check whether the upstream
 Containerfile changed between versions (`git diff vOLD..vNEW --
 images/code/Containerfile` in the fullsend checkout), and whether the Claude
@@ -425,13 +425,9 @@ what the new version changed.
 | Code post-script: "uncommitted changes — not a no-op" | dangling symlinks dropped in the sandbox copy, or real leftover edits | `find . -type l ! -exec test -e {} \; -print` |
 | "Prior review comment … wrong app — discarding" | `FULLSEND_REVIEW_CLIENT_ID` repo var missing; install does not add it to existing repos | set it once per repo (5d) |
 | Lint: "installing named symlink: rename … .fullsend-cache" | stale cache copied from elsewhere | `rm -rf .fullsend/.fullsend-cache`, re-run |
-| `fullsend lint` hangs, VS Code sign-in prompt | askpass fallback | step 2 credential helper |
-| `skopeo inspect` "no image found … darwin" | multi-arch image on a Mac | `--override-os linux --override-arch amd64` or `--raw` |
-| `sed -i ''` errors | GNU sed on PATH | `sed -i`, or Python |
+| `fullsend lint` or install hangs on `git fetch` | git is waiting for a credential prompt | step 2 `git ls-remote` check |
+| `skopeo inspect` "no image found … darwin" | multi-arch image inspected on macOS | `--override-os linux --override-arch amd64` or `--raw` |
 | Later install stops on missing `trace_context` | an earlier install wrote it back from another copy | install from the one writable checkout and commit write-backs |
 
-Two more:
-- **`/tmp` scratch dirs vanish after about a week.** Rebuild with
-  `git archive origin/main .fullsend`.
-- **`--direct` is never used.** Every scaffold and manifest change lands as a
-  PR.
+Also: **`--direct` is never used.** Every scaffold and manifest change lands
+as a PR.
