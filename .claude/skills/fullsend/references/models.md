@@ -96,8 +96,8 @@ In a PR to this repo, set `models.aliases` for the pilot entry (the
 Update the production entries in `repos.yaml`, then install one repo at a
 time with a repo filter. Since v0.57, installs write `config.trace_context`
 back to `repos.yaml`, so run them from a writable checkout of this repo and
-commit the write-backs. Re-apply the shim customizations (`upgrade.md`
-step 6a) on every scaffold PR.
+commit the write-backs. Re-apply the shim customizations (`upgrade.md`,
+"Shim customizations") on every scaffold PR.
 
 ### 5. Update the literal ids
 
@@ -119,3 +119,8 @@ Update the per-agent model table in `docs/gcp-infrastructure.md`.
 4. **`subagents.default` applies only to personas that name no model.** All
    upstream personas name one, so `default: inherit` turns resolution on
    without changing any persona's model.
+5. **A live `subagents:` entry limits the agent to persona sub-agents.** With it
+   on, the review agent starts only the registered personas. On parasol it
+   skipped an ad-hoc "label-conventions" sub-agent ("sub-agents may only be
+   started from the persona files"). Check review output for anything you
+   relied on that is not a persona.
