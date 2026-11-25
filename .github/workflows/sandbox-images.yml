@@ -51,6 +51,10 @@ jobs:
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
           images: ${{ env.IMAGE_NAME }}
+          # latest=auto (the default) also tags semver tag pushes as :latest.
+          # Only the default branch may move :latest; tag builds are pilots.
+          flavor: |
+            latest=false
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

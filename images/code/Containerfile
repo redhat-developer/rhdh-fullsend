@@ -18,7 +18,10 @@
 #   podman build --platform linux/arm64 -t rhdh-fullsend-code:arm64 \
 #     -f images/code/Containerfile images/code/
 
-ARG BASE_IMAGE=ghcr.io/fullsend-ai/fullsend-code:latest
+# Pinned to the fullsend release in repos.yaml (github.fullsend_ref), by tag
+# and multi-arch index digest. Upstream :latest tracks fullsend main and is
+# not the released image.
+ARG BASE_IMAGE=ghcr.io/fullsend-ai/fullsend-code:0.57.1@sha256:f3e76e427a5f03ca2a1d5bea1bba89c2df25d6209bec45b4e2d209632d5833d0
 FROM ${BASE_IMAGE}
 
 USER root
