@@ -80,6 +80,7 @@ surfaces all of this repo's knowledge interactively. Available commands:
 | `/fullsend upgrade [version]` | Upgrade CLI, scaffold files, and dispatch workflows |
 | `/fullsend custom-agents` | Guide for building custom standalone agents |
 | `/fullsend enable-model` | Enable a model in GCP Model Garden |
+| `/fullsend models` | How agent models are pinned and how to move to a new one |
 | `/fullsend local-setup` | Local agent run setup for Mac |
 
 ## Image

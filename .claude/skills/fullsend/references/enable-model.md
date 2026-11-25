@@ -67,6 +67,10 @@ After enabling, update `docs/gcp-infrastructure.md`:
 
 ### 6. Smoke test
 
+To make agents use the model, pin it through `repos.yaml` and rehearse on a
+parasol mirror first: see `references/models.md`.
+
+
 ```bash
 gh issue create --repo redhat-developer/rhdh-agentic \
   --title "test: smoke test <model-id> after Model Garden enablement" \
