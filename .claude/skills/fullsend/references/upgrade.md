@@ -47,6 +47,7 @@ before acting on a production repo.
 |------|-------|---------|
 | Writable checkout of this repo | `git -C <rhdh-fullsend> status` | Clone it. Install can write back to `repos.yaml` (5d), so a copy loses those edits |
 | `gh` CLI | `gh auth status` | Ask the user to authenticate |
+| git authenticates to GitHub without prompting | `GIT_TERMINAL_PROMPT=0 git push --dry-run origin HEAD` in the writable checkout (the repo is public, so a fetch proves nothing; a dry-run push needs a working login and changes nothing) | `gh auth setup-git`, then re-check. `fullsend lint` and install shell out to `git fetch`/`git push` and hang or fail on a credential prompt |
 | `fullsend` CLI ≥ target | `fullsend --version` | Step 2 |
 | Upstream source (optional, for reading code) | a `fullsend-ai/fullsend` checkout with tags | `gh repo clone fullsend-ai/fullsend` |
 
@@ -123,10 +124,8 @@ any `fullsend repos` command. Older CLIs refuse newer manifests (for example,
 v0.57 moved the managed config schema to v3, and CLIs up to v0.55 reject
 `trace_context`). The release notes say when this applies.
 
-`fullsend lint` and install run `git fetch` against GitHub. If one of them
-hangs, git is probably waiting for a credential prompt. Check that git can
-reach GitHub without prompting:
-`GIT_TERMINAL_PROMPT=0 git ls-remote https://github.com/fullsend-ai/agents HEAD`.
+`fullsend lint` and install run `git fetch` and `git push` against GitHub, so
+the git prerequisite above must pass first.
 
 ### 3. Manifest PR (in this repo)
 
@@ -425,7 +424,7 @@ what the new version changed.
 | Code post-script: "uncommitted changes — not a no-op" | dangling symlinks dropped in the sandbox copy, or real leftover edits | `find . -type l ! -exec test -e {} \; -print` |
 | "Prior review comment … wrong app — discarding" | `FULLSEND_REVIEW_CLIENT_ID` repo var missing; install does not add it to existing repos | set it once per repo (5d) |
 | Lint: "installing named symlink: rename … .fullsend-cache" | stale cache copied from elsewhere | `rm -rf .fullsend/.fullsend-cache`, re-run |
-| `fullsend lint` or install hangs on `git fetch` | git is waiting for a credential prompt | step 2 `git ls-remote` check |
+| `fullsend lint` or install hangs on `git fetch`, or `git push` says "could not read Username" | git is waiting for a credential prompt | `gh auth setup-git` (Prerequisites) |
 | `skopeo inspect` "no image found … darwin" | multi-arch image inspected on macOS | `--override-os linux --override-arch amd64` or `--raw` |
 | Later install stops on missing `trace_context` | an earlier install wrote it back from another copy | install from the one writable checkout and commit write-backs |
 
