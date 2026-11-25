@@ -14,6 +14,8 @@ description: |
   set up fullsend on a repo, or configure WIF for a new repo.
   Also use when asked to enable a model in the Model Garden, activate
   a new Claude/Anthropic/Grok model, or check model enablement status.
+  Also use when asked which model an agent runs on, to pin or change agent
+  models, or to move the fleet to a new model.
   Also use when asked about local fullsend setup, RHDH GCP project config,
   or the custom sandbox image.
   Also use when asked to audit the fleet, check which repos have fullsend
@@ -31,7 +33,7 @@ For user-facing fullsend commands (trigger, inspect, watch, help), use the upstr
 ## Essential Principles
 
 1. **`base:` composition, not `customized/` overlay.** ADR 0064 removed `.fullsend/customized/`. Repo-owned agents live under `.fullsend/rhdh/` and register in `.fullsend/config.yaml`. Harnesses inherit upstream via `base:` and override only the fields that differ.
-2. **`repos.yaml` is the fleet source of truth.** Version pins, mint URL, and the managed repo list live at the root of this repo. Roll a new fullsend version by bumping `github.fullsend_ref` and running `fullsend repos install -f repos.yaml` (PRs only, never `--direct`).
+2. **`repos.yaml` is the fleet source of truth.** Version pins, mint URL, the managed repo list, and (since v0.47) each repo's managed `.fullsend/config.yaml`, including model pins, live at the root of this repo. Roll a new fullsend version with `/fullsend upgrade`: one repo at a time, rehearsed on its `rhdh-parasol` mirror, PRs only, never `--direct`.
 3. **Always diff before deploying.** Thin `base:` harnesses still need a field-by-field check against the upstream file they inherit.
 4. **Docker ENV is dead at runtime.** OpenShell strips Containerfile `ENV` directives — they exist during `docker build` but not in the sandbox. All runtime env vars must go through `.env.d/` files.
 5. **Harness paths are relative to `.fullsend/`.** `host_files.src` values such as `rhdh/env/yarn-proxy.env` resolve from the per-repo `.fullsend/` root, not from a flattened `customized/` overlay.
@@ -99,9 +101,10 @@ To add a variable, create an env file and wire it via `host_files` in the harnes
 | `label <#issue> <add\|remove> <label> [--repo]` | Add or remove a label on an issue or PR |
 | `fleet-status` | Audit installed vs. managed repos across both orgs |
 | `onboard <org>/<repo>` | Add a new repo to the fullsend fleet (WIF, variables, secrets, scaffold) |
-| `upgrade [version]` | Upgrade CLI, bump `repos.yaml`, and converge target repos via PRs |
+| `upgrade [version]` | Plan and run a fleet upgrade: release notes, CLI, manifest, image, per-repo pre-PR → install → scaffold PR → test |
 | `custom-agents` | Guide for building custom standalone agents (scaffold, dispatch, security) |
 | `enable-model` | Enable a partner model in GCP Model Garden (requires browser + Owner creds) |
+| `models [new-model-id]` | Where agent models are pinned, how a pin reaches each repo, and how to move to a new model |
 | `local-setup` | Guide for running fullsend agents locally on a Mac |
 
 If no arguments are given, display this table and ask which the user wants.
@@ -121,6 +124,7 @@ Parse the first word after `/fullsend` as the subcommand.
 | `comment` | `references/comment.md` |
 | `label` | `references/label.md` |
 | `enable-model` | `references/enable-model.md` |
+| `models` | `references/models.md` |
 | `fleet-status` | `references/fleet-status.md` |
 | `onboard` | `references/onboard.md` |
 | `upgrade` | `references/upgrade.md` |
@@ -206,24 +210,32 @@ Running `yarn chores` from the workspace root does all of these in one pass.
 
 ### Auto-trigger configuration
 
-All auto-triggers are **disabled fleet-wide**. The shim only listens to
-`issue_comment` (for `/fs-*` commands) and `pull_request_target: [labeled, unlabeled]`
-(for intentional label-based triggers like `fullsend` → code, `priority/*` → prioritize).
+This is the fleet's setup as of the v0.57.1 rollout. Each repo's
+`.github/workflows/fullsend.yaml` is the source of truth; read it before
+relying on the table.
+
+All auto-triggers are **disabled fleet-wide**. The shim listens only to
+`issue_comment` (for `/fs-*` commands) and the PR event with
+`[labeled, unlabeled]` (`pull_request` from v0.57, `pull_request_target`
+before) for label-based triggers. The overlay repos also keep
+`issues: [labeled]` for E2E triage and the e2e-failure coder.
 
 | Agent | Auto-trigger | Manual trigger |
 |-------|-------------|----------------|
 | triage | Disabled (was: issue opened/edited) | `/fs-triage` |
-| review | Disabled (was: PR opened/synced) | `/fs-review` |
-| fix | Disabled (was: review changes_requested) | `/fs-fix <instruction>` |
+| review | Label `ready-for-review` on a PR | `/fs-review` |
+| fix | Disabled (was: bot review changes_requested) | `/fs-fix <instruction>` |
 | retro | Disabled (was: PR closed) | `/fs-retro` |
-| code | Label `fullsend` on issue | `/fs-code` |
-| prioritize | Label `priority/*` on issue | `/fs-prioritize` |
+| code | Label `ready-to-code` on an issue | `/fs-code` |
+| prioritize | Label `priority/*` on an issue | `/fs-prioritize` |
 
-To re-enable an auto-trigger, add the corresponding event back to the shim.
-See `/fullsend upgrade` step 6a for the full event-to-agent mapping.
+From v0.57, label triggers are skipped on **fork PRs**: the shim runs only for
+same-repo PRs, and a maintainer comments `/fs-review` (or `/fs-diagnose`) on
+a fork PR.
 
-**This is a shim edit — `fullsend repos install` will overwrite it.** See
-`/fullsend upgrade` step 6a for the re-apply procedure.
+**This is a shim edit — `fullsend repos install` overwrites it.** See
+`/fullsend upgrade` → "Shim customizations" for the per-repo table and the
+re-apply procedure.
 
 ### Downloading agent logs
 
@@ -263,6 +275,6 @@ The image must pin the same yarn version the target repos use. Check:
 grep packageManager <repo>/package.json
 ```
 
-If a target repo pins `yarn@4.17.1` (rhdh-plugins, overlays) or `yarn@4.12.0` (rhdh-agentic), the Containerfile must `corepack prepare` those versions. A mismatch forces a runtime re-download through the proxy.
+The Containerfile must `corepack prepare` every yarn version a target repo pins. Compare each repo's `packageManager` with the `corepack prepare` lines in `images/code/Containerfile`; repos bump yarn on their own schedule. A mismatch forces a runtime re-download through the proxy.
 
 </sandbox_image>
